@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 213 47% 14%;
     --foreground: 210 40% 98%;
 
     --card: 213 27% 20%;
@@ -43,21 +43,14 @@ All colors MUST be HSL.
     --card-glow: 0 0 40px hsl(45 93% 47% / 0.2);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 213 27% 20%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 45 93% 47%;
+    --sidebar-primary-foreground: 213 47% 14%;
+    --sidebar-accent: 213 27% 25%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 213 27% 30%;
+    --sidebar-ring: 45 93% 47%;
   }
 
   .dark {
