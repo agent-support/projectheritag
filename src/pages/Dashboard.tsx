@@ -6,20 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Wallet, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  CreditCard, 
-  TrendingUp,
-  FileText,
-  Smartphone,
-  Shield,
-  Clock,
-  DollarSign
-} from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownRight, CreditCard, TrendingUp, FileText, Smartphone, Shield, Clock, DollarSign } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
-
 interface Account {
   id: string;
   account_type: string;
@@ -28,30 +16,34 @@ interface Account {
   currency: string;
   status: string;
 }
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
-
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: {
+          session
+        }
+      } = await supabase.auth.getSession();
       if (!session) {
         navigate("/auth");
         return;
       }
       setUser(session.user);
-      
+
       // Load accounts
       await loadAccounts(session.user.id);
       setLoading(false);
     };
-
     checkUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: {
+        subscription
+      }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         navigate("/auth");
       } else {
@@ -59,61 +51,43 @@ const Dashboard = () => {
         loadAccounts(session.user.id);
       }
     });
-
     return () => subscription.unsubscribe();
   }, [navigate]);
 
   // Real-time subscription for account updates
   useEffect(() => {
     if (!user) return;
-
-    const channel = supabase
-      .channel('account-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'accounts',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          loadAccounts(user.id);
-        }
-      )
-      .subscribe();
-
+    const channel = supabase.channel('account-changes').on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'accounts',
+      filter: `user_id=eq.${user.id}`
+    }, () => {
+      loadAccounts(user.id);
+    }).subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
-
   const loadAccounts = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("accounts")
-      .select("*")
-      .eq("user_id", userId);
-
+    const {
+      data,
+      error
+    } = await supabase.from("accounts").select("*").eq("user_id", userId);
     if (data) {
       setAccounts(data as Account[]);
     }
   };
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/");
   };
-
   if (loading) {
-    return (
-      <div className="min-h-screen bg-primary flex items-center justify-center">
+    return <div className="min-h-screen bg-primary flex items-center justify-center">
         <div className="text-foreground">Loading...</div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="min-h-screen bg-primary">
+  return <div className="min-h-screen bg-primary">
       <Navbar />
       <div className="pt-24 pb-12">
         <div className="container mx-auto px-4">
@@ -136,19 +110,15 @@ const Dashboard = () => {
 
             <TabsContent value="overview" className="space-y-6">
               {/* Account Balance Cards */}
-              {accounts.length > 0 && (
-                <div>
+              {accounts.length > 0 && <div>
                   <h2 className="text-2xl font-bold text-foreground mb-4">Account Balances</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    {accounts.map((account) => (
-                      <Card key={account.id} className="p-6 bg-gradient-to-br from-card to-accent/5 border-border hover:border-accent transition-all">
+                    {accounts.map(account => <Card key={account.id} className="p-6 bg-gradient-to-br from-card to-accent/5 border-border hover:border-accent transition-all">
                         <div className="flex items-start justify-between mb-4">
                           <div className="p-3 bg-accent/10 rounded-lg">
                             <DollarSign className="w-6 h-6 text-accent" />
                           </div>
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                            account.status === 'active' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
-                          }`}>
+                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${account.status === 'active' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
                             {account.status}
                           </span>
                         </div>
@@ -162,77 +132,28 @@ const Dashboard = () => {
                           <span className="text-sm text-muted-foreground">{account.currency}</span>
                           <span className="text-3xl font-bold text-foreground">
                             {parseFloat(account.balance?.toString() || '0').toLocaleString('en-US', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2
-                            })}
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
                           </span>
                         </div>
-                      </Card>
-                    ))}
+                      </Card>)}
                   </div>
-                </div>
-              )}
+                </div>}
 
-              {accounts.length === 0 && (
-                <Card className="p-8 bg-card border-border text-center">
-                  <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">No Accounts Yet</h3>
-                  <p className="text-muted-foreground mb-4">Create your first account to get started</p>
-                  <Button onClick={() => navigate("/dashboard")}>Create Account</Button>
-                </Card>
-              )}
+              {accounts.length === 0}
 
               {/* Quick Actions */}
               <h2 className="text-2xl font-bold text-foreground mb-4">Quick Actions</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <QuickActionCard
-                  icon={<ArrowUpRight className="w-6 h-6" />}
-                  title="Transfer Money"
-                  description="Send money locally or internationally"
-                  onClick={() => navigate("/transfer")}
-                />
-                <QuickActionCard
-                  icon={<Smartphone className="w-6 h-6" />}
-                  title="Mobile Deposit"
-                  description="View deposit information"
-                  onClick={() => navigate("/mobile-deposit")}
-                />
-                <QuickActionCard
-                  icon={<Wallet className="w-6 h-6" />}
-                  title="My Profile"
-                  description="Manage your personal information"
-                  onClick={() => navigate("/profile")}
-                />
-                <QuickActionCard
-                  icon={<TrendingUp className="w-6 h-6" />}
-                  title="Crypto Service"
-                  description="Buy, sell, and trade crypto"
-                  onClick={() => navigate("/crypto")}
-                />
-                <QuickActionCard
-                  icon={<CreditCard className="w-6 h-6" />}
-                  title="ATM Card"
-                  description="View your Visa card"
-                  onClick={() => navigate("/atm-card")}
-                />
-                <QuickActionCard
-                  icon={<TrendingUp className="w-6 h-6" />}
-                  title="Portfolio"
-                  description="View investment portfolio"
-                  onClick={() => navigate("/dashboard/portfolio")}
-                />
-                <QuickActionCard
-                  icon={<Wallet className="w-6 h-6" />}
-                  title="Accounts"
-                  description="Manage your accounts"
-                  onClick={() => navigate("/dashboard")}
-                />
-                <QuickActionCard
-                  icon={<FileText className="w-6 h-6" />}
-                  title="Services"
-                  description="View all banking services"
-                  onClick={() => navigate("/dashboard")}
-                />
+                <QuickActionCard icon={<ArrowUpRight className="w-6 h-6" />} title="Transfer Money" description="Send money locally or internationally" onClick={() => navigate("/transfer")} />
+                <QuickActionCard icon={<Smartphone className="w-6 h-6" />} title="Mobile Deposit" description="View deposit information" onClick={() => navigate("/mobile-deposit")} />
+                <QuickActionCard icon={<Wallet className="w-6 h-6" />} title="My Profile" description="Manage your personal information" onClick={() => navigate("/profile")} />
+                <QuickActionCard icon={<TrendingUp className="w-6 h-6" />} title="Crypto Service" description="Buy, sell, and trade crypto" onClick={() => navigate("/crypto")} />
+                <QuickActionCard icon={<CreditCard className="w-6 h-6" />} title="ATM Card" description="View your Visa card" onClick={() => navigate("/atm-card")} />
+                <QuickActionCard icon={<TrendingUp className="w-6 h-6" />} title="Portfolio" description="View investment portfolio" onClick={() => navigate("/dashboard/portfolio")} />
+                <QuickActionCard icon={<Wallet className="w-6 h-6" />} title="Accounts" description="Manage your accounts" onClick={() => navigate("/dashboard")} />
+                <QuickActionCard icon={<FileText className="w-6 h-6" />} title="Services" description="View all banking services" onClick={() => navigate("/dashboard")} />
               </div>
 
               <Card className="p-6 bg-card border-border">
@@ -278,36 +199,12 @@ const Dashboard = () => {
 
             <TabsContent value="services" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <ServiceCard
-                  icon={<Shield className="w-8 h-8 text-accent" />}
-                  title="Advanced Security"
-                  description="Advanced encryption and multi-factor authentication protect your data"
-                />
-                <ServiceCard
-                  icon={<Clock className="w-8 h-8 text-accent" />}
-                  title="24/7 Access"
-                  description="Access your accounts anytime, anywhere from any device"
-                />
-                <ServiceCard
-                  icon={<FileText className="w-8 h-8 text-accent" />}
-                  title="Digital Statements"
-                  description="View and download all your statements and documents"
-                />
-                <ServiceCard
-                  icon={<Smartphone className="w-8 h-8 text-accent" />}
-                  title="Mobile Banking"
-                  description="Full-featured mobile app for banking on the go"
-                />
-                <ServiceCard
-                  icon={<Wallet className="w-8 h-8 text-accent" />}
-                  title="Digital Wallet"
-                  description="Secure digital wallet for quick and easy payments"
-                />
-                <ServiceCard
-                  icon={<TrendingUp className="w-8 h-8 text-accent" />}
-                  title="Investment Tools"
-                  description="Track and manage your investment portfolio"
-                />
+                <ServiceCard icon={<Shield className="w-8 h-8 text-accent" />} title="Advanced Security" description="Advanced encryption and multi-factor authentication protect your data" />
+                <ServiceCard icon={<Clock className="w-8 h-8 text-accent" />} title="24/7 Access" description="Access your accounts anytime, anywhere from any device" />
+                <ServiceCard icon={<FileText className="w-8 h-8 text-accent" />} title="Digital Statements" description="View and download all your statements and documents" />
+                <ServiceCard icon={<Smartphone className="w-8 h-8 text-accent" />} title="Mobile Banking" description="Full-featured mobile app for banking on the go" />
+                <ServiceCard icon={<Wallet className="w-8 h-8 text-accent" />} title="Digital Wallet" description="Secure digital wallet for quick and easy payments" />
+                <ServiceCard icon={<TrendingUp className="w-8 h-8 text-accent" />} title="Investment Tools" description="Track and manage your investment portfolio" />
               </div>
 
               <Card className="p-6 bg-card border-border">
@@ -341,26 +238,20 @@ const Dashboard = () => {
         </div>
       </div>
       <Footer />
-    </div>
-  );
+    </div>;
 };
-
-const QuickActionCard = ({ 
-  icon, 
-  title, 
-  description, 
-  onClick 
-}: { 
-  icon: React.ReactNode; 
-  title: string; 
+const QuickActionCard = ({
+  icon,
+  title,
+  description,
+  onClick
+}: {
+  icon: React.ReactNode;
+  title: string;
   description: string;
   onClick: () => void;
 }) => {
-  return (
-    <Card 
-      className="p-6 bg-card border-border hover:border-accent transition-all cursor-pointer"
-      onClick={onClick}
-    >
+  return <Card className="p-6 bg-card border-border hover:border-accent transition-all cursor-pointer" onClick={onClick}>
       <div className="flex items-start gap-4">
         <div className="p-3 bg-accent/10 rounded-lg text-accent">
           {icon}
@@ -370,43 +261,35 @@ const QuickActionCard = ({
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
       </div>
-    </Card>
-  );
+    </Card>;
 };
-
-const StatCard = ({ 
-  label, 
-  value, 
-  className = "" 
-}: { 
-  label: string; 
-  value: string; 
+const StatCard = ({
+  label,
+  value,
+  className = ""
+}: {
+  label: string;
+  value: string;
   className?: string;
 }) => {
-  return (
-    <div className="text-center p-4 bg-secondary/50 rounded-lg">
+  return <div className="text-center p-4 bg-secondary/50 rounded-lg">
       <div className="text-sm text-muted-foreground mb-1">{label}</div>
       <div className={`text-2xl font-bold ${className}`}>{value}</div>
-    </div>
-  );
+    </div>;
 };
-
-const ServiceCard = ({ 
-  icon, 
-  title, 
-  description 
-}: { 
-  icon: React.ReactNode; 
-  title: string; 
+const ServiceCard = ({
+  icon,
+  title,
+  description
+}: {
+  icon: React.ReactNode;
+  title: string;
   description: string;
 }) => {
-  return (
-    <Card className="p-6 bg-card border-border">
+  return <Card className="p-6 bg-card border-border">
       <div className="mb-4">{icon}</div>
       <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
       <p className="text-sm text-muted-foreground">{description}</p>
-    </Card>
-  );
+    </Card>;
 };
-
 export default Dashboard;
