@@ -33,6 +33,9 @@ export const Navbar = () => {
             <NavLink to="/contact" className="text-foreground/80 hover:text-foreground transition-colors">
               Contact & Support
             </NavLink>
+            <NavLink to="/dashboard" className="text-foreground/80 hover:text-foreground transition-colors">
+              Dashboard
+            </NavLink>
           </div>
 
           <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-accent-foreground">
