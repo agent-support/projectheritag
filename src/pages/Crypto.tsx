@@ -8,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, TrendingUp, ArrowUpRight, ArrowDownRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, TrendingUp, ArrowUpRight, ArrowDownRight, RefreshCw, CheckCircle, History, Download } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+import { format } from "date-fns";
 
 const CRYPTO_COINS = [
   { symbol: "BTC", name: "Bitcoin", id: "bitcoin", address: "bc1qhwutfxhl9062uxjswwgc7dr4zv8fwkekm4u42s" },
@@ -36,6 +38,9 @@ const Crypto = () => {
   const [totalBalance, setTotalBalance] = useState(0);
   const [convertAmount, setConvertAmount] = useState("");
   const [convertingToBank, setConvertingToBank] = useState(true);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [currentReceipt, setCurrentReceipt] = useState<any>(null);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -46,6 +51,7 @@ const Crypto = () => {
       }
       setUser(session.user);
       await loadCryptoWallets(session.user.id);
+      await loadTransactions(session.user.id);
     };
     checkUser();
     fetchPrices();
@@ -68,6 +74,46 @@ const Crypto = () => {
     if (data) {
       setCryptoWallets(data);
     }
+  };
+
+  const loadTransactions = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("crypto_transactions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    
+    if (data) {
+      setTransactions(data);
+    }
+  };
+
+  const generateReferenceNumber = () => {
+    return `CRY${Date.now()}${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+  };
+
+  const createTransaction = async (type: string, coin: string, amount: number, usdValue: number, recipientAddress?: string) => {
+    const refNumber = generateReferenceNumber();
+    const { data, error } = await supabase
+      .from("crypto_transactions")
+      .insert({
+        user_id: user!.id,
+        transaction_type: type,
+        coin_symbol: coin,
+        amount,
+        usd_value: usdValue,
+        recipient_address: recipientAddress,
+        reference_number: refNumber,
+        status: 'completed'
+      })
+      .select()
+      .single();
+
+    if (data) {
+      await loadTransactions(user!.id);
+      return data;
+    }
+    return null;
   };
 
   const calculateTotalBalance = () => {
@@ -107,12 +153,11 @@ const Crypto = () => {
     const amountNum = parseFloat(convertAmount);
 
     if (convertingToBank) {
-      // Convert crypto to bank (USD)
       const wallet = cryptoWallets.find(w => w.coin_symbol === selectedCoin.symbol);
       if (!wallet || wallet.balance < amountNum) {
         toast({
-          title: "Insufficient Balance",
-          description: `You don't have enough ${selectedCoin.symbol}`,
+          title: "Insufficient Funds",
+          description: `You don't have enough ${selectedCoin.symbol}. Available: ${wallet?.balance || 0} ${selectedCoin.symbol}`,
           variant: "destructive"
         });
         return;
@@ -121,7 +166,6 @@ const Crypto = () => {
       const coin = CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol);
       const usdValue = amountNum * (prices[coin!.id]?.usd || 0);
 
-      // Update crypto wallet
       const { error: walletError } = await supabase
         .from("crypto_wallets")
         .update({ balance: wallet.balance - amountNum })
@@ -136,7 +180,6 @@ const Crypto = () => {
         return;
       }
 
-      // Get user's bank account
       const { data: accounts } = await supabase
         .from("accounts")
         .select("*")
@@ -159,12 +202,12 @@ const Crypto = () => {
         }
       }
 
-      toast({
-        title: "Conversion Successful",
-        description: `Converted ${amountNum} ${selectedCoin.symbol} to $${usdValue.toFixed(2)}`,
-      });
+      const receipt = await createTransaction('convert_to_bank', selectedCoin.symbol, amountNum, usdValue);
+      if (receipt) {
+        setCurrentReceipt(receipt);
+        setShowReceipt(true);
+      }
     } else {
-      // Convert bank (USD) to crypto
       const { data: accounts } = await supabase
         .from("accounts")
         .select("*")
@@ -173,8 +216,8 @@ const Crypto = () => {
 
       if (!accounts || accounts.length === 0 || (accounts[0].balance || 0) < amountNum) {
         toast({
-          title: "Insufficient Balance",
-          description: "You don't have enough USD in your bank account",
+          title: "Insufficient Funds",
+          description: `You don't have enough USD in your bank account. Available: $${accounts?.[0]?.balance || 0}`,
           variant: "destructive"
         });
         return;
@@ -183,7 +226,6 @@ const Crypto = () => {
       const coin = CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol);
       const cryptoAmount = amountNum / (prices[coin!.id]?.usd || 1);
 
-      // Update bank account
       const { error: accountError } = await supabase
         .from("accounts")
         .update({ balance: (accounts[0].balance || 0) - amountNum })
@@ -198,7 +240,6 @@ const Crypto = () => {
         return;
       }
 
-      // Update or create crypto wallet
       const wallet = cryptoWallets.find(w => w.coin_symbol === selectedCoin.symbol);
       if (wallet) {
         const { error: walletError } = await supabase
@@ -234,10 +275,11 @@ const Crypto = () => {
         }
       }
 
-      toast({
-        title: "Conversion Successful",
-        description: `Converted $${amountNum} to ${cryptoAmount.toFixed(8)} ${selectedCoin.symbol}`,
-      });
+      const receipt = await createTransaction('convert_to_crypto', selectedCoin.symbol, cryptoAmount, amountNum);
+      if (receipt) {
+        setCurrentReceipt(receipt);
+        setShowReceipt(true);
+      }
     }
 
     setConvertAmount("");
@@ -246,12 +288,64 @@ const Crypto = () => {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({ 
-      title: "Transaction Initiated", 
-      description: `Sending ${amount} ${selectedCoin.symbol} to ${walletAddress}` 
-    });
+    
+    if (!user || !amount || parseFloat(amount) <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid amount",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!walletAddress) {
+      toast({
+        title: "Invalid Address",
+        description: "Please enter a recipient wallet address",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const amountNum = parseFloat(amount);
+    const wallet = cryptoWallets.find(w => w.coin_symbol === selectedCoin.symbol);
+    
+    if (!wallet || wallet.balance < amountNum) {
+      toast({
+        title: "Insufficient Funds",
+        description: `You don't have enough ${selectedCoin.symbol}. Available: ${wallet?.balance || 0} ${selectedCoin.symbol}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const coin = CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol);
+    const usdValue = amountNum * (prices[coin!.id]?.usd || 0);
+
+    const { error: walletError } = await supabase
+      .from("crypto_wallets")
+      .update({ balance: wallet.balance - amountNum })
+      .eq("id", wallet.id);
+
+    if (walletError) {
+      toast({
+        title: "Transaction Failed",
+        description: "Failed to send crypto",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const receipt = await createTransaction('send', selectedCoin.symbol, amountNum, usdValue, walletAddress);
+    
+    if (receipt) {
+      setCurrentReceipt(receipt);
+      setShowReceipt(true);
+    }
+
     setAmount("");
     setWalletAddress("");
+    await loadCryptoWallets(user.id);
   };
 
   return (
@@ -405,22 +499,28 @@ const Crypto = () => {
                     </select>
                   </div>
                   <div>
-                    <Label>Amount</Label>
+                    <Label>Amount ({selectedCoin.symbol})</Label>
                     <Input 
-                      type="number" 
+                      type="number"
                       step="0.00000001"
+                      placeholder={`Enter ${selectedCoin.symbol} amount`}
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      placeholder={`Enter ${selectedCoin.symbol} amount`}
                       required 
                     />
+                    {amount && prices[CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol)!.id] && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        ≈ ${(parseFloat(amount) * prices[CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol)!.id].usd).toFixed(2)} USD
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label>Recipient Wallet Address</Label>
                     <Input 
+                      type="text"
+                      placeholder="Enter wallet address"
                       value={walletAddress}
                       onChange={(e) => setWalletAddress(e.target.value)}
-                      placeholder="Enter wallet address"
                       required 
                     />
                   </div>
@@ -469,8 +569,140 @@ const Crypto = () => {
               </Card>
             </TabsContent>
           </Tabs>
+
+          {/* Transaction History */}
+          <Card className="mt-8 p-6 bg-card border-border">
+            <div className="flex items-center gap-2 mb-6">
+              <History className="w-5 h-5 text-accent" />
+              <h2 className="text-2xl font-bold text-foreground">Transaction History</h2>
+            </div>
+            
+            {transactions.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No transactions yet</p>
+            ) : (
+              <div className="space-y-4">
+                {transactions.map((tx) => (
+                  <div key={tx.id} className="p-4 bg-muted rounded-lg border border-border hover:border-accent transition-all">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-semibold text-foreground capitalize">
+                          {tx.transaction_type.replace('_', ' ')}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(tx.created_at), 'PPpp')}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-foreground">
+                          {tx.amount.toFixed(8)} {tx.coin_symbol}
+                        </p>
+                        <p className="text-sm text-accent">
+                          ${tx.usd_value.toFixed(2)} USD
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center mt-3 pt-3 border-t border-border">
+                      <p className="text-xs text-muted-foreground font-mono">
+                        Ref: {tx.reference_number}
+                      </p>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        tx.status === 'completed' ? 'bg-green-500/20 text-green-500' : 
+                        tx.status === 'pending' ? 'bg-yellow-500/20 text-yellow-500' : 
+                        'bg-red-500/20 text-red-500'
+                      }`}>
+                        {tx.status}
+                      </span>
+                    </div>
+                    {tx.recipient_address && (
+                      <p className="text-xs text-muted-foreground mt-2 font-mono break-all">
+                        To: {tx.recipient_address}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
       </div>
+
+      {/* Receipt Dialog */}
+      <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
+        <DialogContent className="sm:max-w-md bg-card">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <CheckCircle className="w-6 h-6 text-green-500" />
+              Transaction Receipt
+            </DialogTitle>
+          </DialogHeader>
+          
+          {currentReceipt && (
+            <div className="space-y-4">
+              <div className="text-center py-6 border-y border-border">
+                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-green-500 mb-2">Success!</h3>
+                <p className="text-muted-foreground capitalize">
+                  {currentReceipt.transaction_type.replace('_', ' ')} Completed
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-muted-foreground">Amount:</span>
+                  <span className="font-bold text-foreground">
+                    {currentReceipt.amount.toFixed(8)} {currentReceipt.coin_symbol}
+                  </span>
+                </div>
+
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-muted-foreground">USD Value:</span>
+                  <span className="font-bold text-accent">
+                    ${currentReceipt.usd_value.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-muted-foreground">Reference:</span>
+                  <span className="font-mono text-sm text-foreground">
+                    {currentReceipt.reference_number}
+                  </span>
+                </div>
+
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-muted-foreground">Date & Time:</span>
+                  <span className="text-foreground">
+                    {format(new Date(currentReceipt.created_at), 'PPpp')}
+                  </span>
+                </div>
+
+                <div className="flex justify-between py-2 border-b border-border">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-500 text-sm font-medium">
+                    {currentReceipt.status}
+                  </span>
+                </div>
+
+                {currentReceipt.recipient_address && (
+                  <div className="flex justify-between py-2 border-b border-border">
+                    <span className="text-muted-foreground">Recipient:</span>
+                    <span className="font-mono text-xs text-foreground break-all max-w-[200px] text-right">
+                      {currentReceipt.recipient_address}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <Button 
+                onClick={() => setShowReceipt(false)} 
+                className="w-full mt-4"
+              >
+                Close
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Footer />
     </div>
   );
