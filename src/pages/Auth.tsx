@@ -48,12 +48,34 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
+
+      // Check if user is blocked
+      if (data.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("status")
+          .eq("id", data.user.id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        if (profile?.status === "blocked") {
+          await supabase.auth.signOut();
+          toast({
+            title: "Account Restricted",
+            description: "Your account has been restricted. Please contact support.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+      }
 
       toast({
         title: "Success!",

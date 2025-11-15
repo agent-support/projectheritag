@@ -35,17 +35,24 @@ const Dashboard = () => {
         navigate("/auth");
         return;
       }
+
+      // Check if user is blocked
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, first_name, last_name, status")
+        .eq("id", session.user.id)
+        .single();
+
+      if (profile?.status === "blocked") {
+        await supabase.auth.signOut();
+        navigate("/auth");
+        return;
+      }
+
       setUser(session.user);
 
       // Load accounts
       await loadAccounts(session.user.id);
-      
-      // Load profile name
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name, first_name, last_name")
-        .eq("id", session.user.id)
-        .single();
       
       if (profile) {
         setProfileName(profile.full_name || `${profile.first_name} ${profile.last_name}` || "User");
