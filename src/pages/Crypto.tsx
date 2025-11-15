@@ -13,15 +13,15 @@ import { ArrowLeft, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-reac
 import type { User } from "@supabase/supabase-js";
 
 const CRYPTO_COINS = [
-  { symbol: "BTC", name: "Bitcoin", id: "bitcoin" },
-  { symbol: "ETH", name: "Ethereum", id: "ethereum" },
-  { symbol: "USDT", name: "Tether (BNB)", id: "tether" },
-  { symbol: "USDT_ERC20", name: "Tether (ERC20)", id: "tether" },
-  { symbol: "USDT_TRC20", name: "Tether (TRC20)", id: "tether" },
-  { symbol: "SOL", name: "Solana", id: "solana" },
-  { symbol: "XRP", name: "Ripple", id: "ripple" },
-  { symbol: "BNB", name: "BNB", id: "binancecoin" },
-  { symbol: "PI", name: "Pi Network", id: "pi-network" }
+  { symbol: "BTC", name: "Bitcoin", id: "bitcoin", address: "bc1qhwutfxhl9062uxjswwgc7dr4zv8fwkekm4u42s" },
+  { symbol: "ETH", name: "Ethereum", id: "ethereum", address: "0xc254e04bf79df093e821ba9e8e8f366e01b36d66" },
+  { symbol: "USDT", name: "Tether (BNB)", id: "tether", address: "0xc254e04bf79df093e821ba9e8e8f366e01b36d66" },
+  { symbol: "USDT_ERC20", name: "Tether (ERC20)", id: "tether", address: "0xc254e04bf79df093e821ba9e8e8f366e01b36d66" },
+  { symbol: "USDT_TRC20", name: "Tether (TRC20)", id: "tether", address: "TVvsMrne5bPZE2rdAUCbDAfQCYvSZcdpYz" },
+  { symbol: "SOL", name: "Solana", id: "solana", address: "HqZDakA7ELoKJ4vJH1NUXBC2B4qRra4JauDWvvmK4xqn" },
+  { symbol: "XRP", name: "Ripple", id: "ripple", address: "r4KpqYeisKn15n1Kr6dfYNPHj83WVBKCTZ" },
+  { symbol: "BNB", name: "BNB", id: "binancecoin", address: "0xc254e04bf79df093e821ba9e8e8f366e01b36d66" },
+  { symbol: "PI", name: "Pi Network", id: "pi-network", address: "GAVBCFVO4BES4TI35D6Q6M6KDVUZVL2B5FHJNN3AZ76E5NI27VEBZCWJ" }
 ];
 
 const Crypto = () => {
@@ -32,6 +32,7 @@ const Crypto = () => {
   const [selectedCoin, setSelectedCoin] = useState(CRYPTO_COINS[0]);
   const [amount, setAmount] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
+  const [balance] = useState(0);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -72,10 +73,9 @@ const Crypto = () => {
   };
 
   const handleReceive = async () => {
-    const mockAddress = `${selectedCoin.symbol}${Math.random().toString(36).substring(2, 15)}`;
     toast({ 
-      title: "Wallet Address", 
-      description: mockAddress,
+      title: "Deposit Address", 
+      description: selectedCoin.address,
       duration: 10000
     });
   };
@@ -90,11 +90,17 @@ const Crypto = () => {
             Back to Dashboard
           </Button>
 
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-accent" />
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-accent" />
+              </div>
+              <h1 className="text-4xl font-bold text-foreground">Crypto Service</h1>
             </div>
-            <h1 className="text-4xl font-bold text-foreground">Crypto Service</h1>
+            <Card className="p-6 bg-card border-border">
+              <p className="text-sm text-muted-foreground mb-1">Total Balance</p>
+              <p className="text-3xl font-bold text-foreground">${balance.toFixed(2)}</p>
+            </Card>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -183,8 +189,28 @@ const Crypto = () => {
                       ))}
                     </select>
                   </div>
-                  <p className="text-muted-foreground">Generate a wallet address to receive {selectedCoin.symbol}</p>
-                  <Button onClick={handleReceive} className="w-full">Generate Wallet Address</Button>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Use this address to receive {selectedCoin.name} deposits.
+                  </p>
+                  <div className="space-y-2">
+                    <Label>Deposit Address</Label>
+                    <div className="p-4 bg-muted rounded-lg border border-border">
+                      <p className="text-sm font-mono break-all text-foreground">{selectedCoin.address}</p>
+                    </div>
+                    <Button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(selectedCoin.address);
+                        toast({ 
+                          title: "Copied!", 
+                          description: "Address copied to clipboard" 
+                        });
+                      }} 
+                      variant="outline" 
+                      className="w-full"
+                    >
+                      Copy Address
+                    </Button>
+                  </div>
                 </div>
               </Card>
             </TabsContent>
