@@ -7,9 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Users, Wallet, TrendingUp, DollarSign, ArrowLeft } from "lucide-react";
+import { Shield, Users, Wallet, TrendingUp, DollarSign, ArrowLeft, CheckCircle, XCircle } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";
+import { UserDetailsDialog } from "@/components/UserDetailsDialog";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -27,6 +28,8 @@ const Admin = () => {
     totalBalance: 0,
     totalCryptoValue: 0
   });
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [userDetailsOpen, setUserDetailsOpen] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
@@ -121,6 +124,33 @@ const Admin = () => {
     }
   };
 
+  const handleActivateUser = async (userId: string) => {
+    try {
+      const { error } = await supabase.rpc('activate_user_account', { _user_id: userId });
+      
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "User account activated successfully",
+      });
+
+      await loadAdminData();
+    } catch (error) {
+      console.error("Error activating user:", error);
+      toast({
+        title: "Error",
+        description: "Failed to activate user account",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewUserDetails = (userId: string) => {
+    setSelectedUserId(userId);
+    setUserDetailsOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-primary flex items-center justify-center">
@@ -213,7 +243,9 @@ const Admin = () => {
                         <th className="text-left py-3 px-4 text-muted-foreground font-semibold">Email</th>
                         <th className="text-left py-3 px-4 text-muted-foreground font-semibold">Phone</th>
                         <th className="text-left py-3 px-4 text-muted-foreground font-semibold">Country</th>
+                        <th className="text-left py-3 px-4 text-muted-foreground font-semibold">Status</th>
                         <th className="text-left py-3 px-4 text-muted-foreground font-semibold">Joined</th>
+                        <th className="text-left py-3 px-4 text-muted-foreground font-semibold">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -223,8 +255,42 @@ const Admin = () => {
                           <td className="py-3 px-4 text-foreground">{user.email}</td>
                           <td className="py-3 px-4 text-foreground">{user.phone || 'N/A'}</td>
                           <td className="py-3 px-4 text-foreground">{user.country || 'N/A'}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs flex items-center gap-1 w-fit ${
+                              user.status === 'active' 
+                                ? 'bg-green-500/20 text-green-500' 
+                                : 'bg-yellow-500/20 text-yellow-500'
+                            }`}>
+                              {user.status === 'active' ? (
+                                <CheckCircle className="w-3 h-3" />
+                              ) : (
+                                <XCircle className="w-3 h-3" />
+                              )}
+                              {user.status || 'inactive'}
+                            </span>
+                          </td>
                           <td className="py-3 px-4 text-foreground">
                             {user.created_at ? format(new Date(user.created_at), 'PP') : 'N/A'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleViewUserDetails(user.id)}
+                              >
+                                View Details
+                              </Button>
+                              {user.status !== 'active' && (
+                                <Button 
+                                  size="sm"
+                                  onClick={() => handleActivateUser(user.id)}
+                                  className="bg-green-500 hover:bg-green-600"
+                                >
+                                  Activate
+                                </Button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -370,6 +436,15 @@ const Admin = () => {
         </div>
       </div>
       <Footer />
+      
+      {selectedUserId && (
+        <UserDetailsDialog
+          open={userDetailsOpen}
+          onOpenChange={setUserDetailsOpen}
+          userId={selectedUserId}
+          onUpdate={loadAdminData}
+        />
+      )}
     </div>
   );
 };

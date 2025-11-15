@@ -37,19 +37,25 @@ const Dashboard = () => {
       }
       setUser(session.user);
 
-      // Load accounts
-      await loadAccounts(session.user.id);
-      
-      // Load profile name
+      // Check user status
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, first_name, last_name")
+        .select("full_name, first_name, last_name, status")
         .eq("id", session.user.id)
         .single();
       
       if (profile) {
+        // If user is inactive, show message
+        if (profile.status === 'inactive') {
+          setLoading(false);
+          return;
+        }
+        
         setProfileName(profile.full_name || `${profile.first_name} ${profile.last_name}` || "User");
       }
+
+      // Load accounts
+      await loadAccounts(session.user.id);
       
       setLoading(false);
     };
@@ -93,14 +99,62 @@ const Dashboard = () => {
       setAccounts(data as Account[]);
     }
   };
+  
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/");
   };
+  
   if (loading) {
     return <div className="min-h-screen bg-primary flex items-center justify-center">
         <div className="text-foreground">Loading...</div>
       </div>;
+  }
+
+  // Check if user account is inactive
+  const checkUserStatus = async () => {
+    if (!user) return true;
+    
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("status")
+      .eq("id", user.id)
+      .single();
+    
+    return profile?.status === 'active';
+  };
+
+  const [isActive, setIsActive] = useState(true);
+  
+  useEffect(() => {
+    const checkStatus = async () => {
+      const active = await checkUserStatus();
+      setIsActive(active);
+    };
+    checkStatus();
+  }, [user]);
+
+  if (!isActive) {
+    return (
+      <div className="min-h-screen bg-primary">
+        <Navbar />
+        <div className="pt-24 pb-12 flex items-center justify-center min-h-[80vh]">
+          <Card className="max-w-md mx-4 p-8 bg-card border-border text-center">
+            <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-8 h-8 text-yellow-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-foreground mb-4">Account Not Activated</h2>
+            <p className="text-muted-foreground mb-6">
+              Your account is not yet activated. Please try and reach the support team so your account will be activated.
+            </p>
+            <Button onClick={handleSignOut} variant="outline" className="w-full">
+              Sign Out
+            </Button>
+          </Card>
+        </div>
+        <Footer />
+      </div>
+    );
   }
   return <div className="min-h-screen bg-primary">
       <Navbar />

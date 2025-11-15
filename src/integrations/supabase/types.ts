@@ -261,6 +261,7 @@ export type Database = {
           last_name: string | null
           phone: string | null
           profile_picture_url: string | null
+          status: string
           transfer_pin: string | null
           updated_at: string | null
           username: string | null
@@ -278,6 +279,7 @@ export type Database = {
           last_name?: string | null
           phone?: string | null
           profile_picture_url?: string | null
+          status?: string
           transfer_pin?: string | null
           updated_at?: string | null
           username?: string | null
@@ -295,6 +297,7 @@ export type Database = {
           last_name?: string | null
           phone?: string | null
           profile_picture_url?: string | null
+          status?: string
           transfer_pin?: string | null
           updated_at?: string | null
           username?: string | null
@@ -410,6 +413,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_user_account: { Args: { _user_id: string }; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
