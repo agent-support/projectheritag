@@ -173,53 +173,62 @@ export const EditBalances = () => {
             </Select>
           </div>
 
-          {selectedUser && accounts.length > 0 && (
+          {selectedUser && (
             <>
-              <div>
-                <Label>Account</Label>
-                <Select value={selectedAccount} onValueChange={setSelectedAccount}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.account_type} - {account.account_number} (Balance: ${Number(account.balance).toFixed(2)})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {accounts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>This user has no bank accounts yet.</p>
+                  <p className="text-sm mt-2">Please create an account for this user first.</p>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <Label>Account</Label>
+                    <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.account_type} - {account.account_number} (Balance: ${Number(account.balance).toFixed(2)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div>
-                <Label>Amount</Label>
-                <Input
-                  type="number"
-                  placeholder="Enter amount"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  min="0"
-                  step="0.01"
-                />
-              </div>
+                  <div>
+                    <Label>Amount</Label>
+                    <Input
+                      type="number"
+                      placeholder="Enter amount"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
 
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1"
-                  onClick={() => updateBalance("add")}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Funds
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={() => updateBalance("subtract")}
-                >
-                  <Minus className="h-4 w-4 mr-2" />
-                  Subtract Funds
-                </Button>
-              </div>
+                  <div className="flex gap-2">
+                    <Button
+                      className="flex-1"
+                      onClick={() => updateBalance("add")}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Funds
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => updateBalance("subtract")}
+                    >
+                      <Minus className="h-4 w-4 mr-2" />
+                      Subtract Funds
+                    </Button>
+                  </div>
+                </>
+              )}
             </>
           )}
         </CardContent>
