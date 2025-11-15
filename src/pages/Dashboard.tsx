@@ -15,14 +15,25 @@ import {
   FileText,
   Smartphone,
   Shield,
-  Clock
+  Clock,
+  DollarSign
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+
+interface Account {
+  id: string;
+  account_type: string;
+  account_number: string;
+  balance: number;
+  currency: string;
+  status: string;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accounts, setAccounts] = useState<Account[]>([]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -32,6 +43,9 @@ const Dashboard = () => {
         return;
       }
       setUser(session.user);
+      
+      // Load accounts
+      await loadAccounts(session.user.id);
       setLoading(false);
     };
 
@@ -42,11 +56,48 @@ const Dashboard = () => {
         navigate("/auth");
       } else {
         setUser(session.user);
+        loadAccounts(session.user.id);
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  // Real-time subscription for account updates
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('account-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounts',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          loadAccounts(user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const loadAccounts = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("user_id", userId);
+
+    if (data) {
+      setAccounts(data as Account[]);
+    }
+  };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -84,6 +135,55 @@ const Dashboard = () => {
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
+              {/* Account Balance Cards */}
+              {accounts.length > 0 && (
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground mb-4">Account Balances</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    {accounts.map((account) => (
+                      <Card key={account.id} className="p-6 bg-gradient-to-br from-card to-accent/5 border-border hover:border-accent transition-all">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="p-3 bg-accent/10 rounded-lg">
+                            <DollarSign className="w-6 h-6 text-accent" />
+                          </div>
+                          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                            account.status === 'active' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
+                          }`}>
+                            {account.status}
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-semibold text-foreground mb-1 capitalize">
+                          {account.account_type.replace('_', ' ')}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-4 font-mono">
+                          {account.account_number}
+                        </p>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-sm text-muted-foreground">{account.currency}</span>
+                          <span className="text-3xl font-bold text-foreground">
+                            {parseFloat(account.balance?.toString() || '0').toLocaleString('en-US', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            })}
+                          </span>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {accounts.length === 0 && (
+                <Card className="p-8 bg-card border-border text-center">
+                  <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Accounts Yet</h3>
+                  <p className="text-muted-foreground mb-4">Create your first account to get started</p>
+                  <Button onClick={() => navigate("/dashboard")}>Create Account</Button>
+                </Card>
+              )}
+
+              {/* Quick Actions */}
+              <h2 className="text-2xl font-bold text-foreground mb-4">Quick Actions</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <QuickActionCard
                   icon={<ArrowUpRight className="w-6 h-6" />}
