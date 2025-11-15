@@ -89,6 +89,36 @@ export type Database = {
         }
         Relationships: []
       }
+      crypto_wallets: {
+        Row: {
+          balance: number | null
+          coin_symbol: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+          wallet_address: string
+        }
+        Insert: {
+          balance?: number | null
+          coin_symbol: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          wallet_address: string
+        }
+        Update: {
+          balance?: number | null
+          coin_symbol?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       holdings: {
         Row: {
           created_at: string | null
@@ -177,28 +207,46 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
+          age: number | null
           created_at: string | null
+          date_of_birth: string | null
           email: string
           full_name: string
           id: string
           phone: string | null
+          profile_picture_url: string | null
+          transfer_pin: string | null
           updated_at: string | null
+          username: string | null
         }
         Insert: {
+          address?: string | null
+          age?: number | null
           created_at?: string | null
+          date_of_birth?: string | null
           email: string
           full_name: string
           id: string
           phone?: string | null
+          profile_picture_url?: string | null
+          transfer_pin?: string | null
           updated_at?: string | null
+          username?: string | null
         }
         Update: {
+          address?: string | null
+          age?: number | null
           created_at?: string | null
+          date_of_birth?: string | null
           email?: string
           full_name?: string
           id?: string
           phone?: string | null
+          profile_picture_url?: string | null
+          transfer_pin?: string | null
           updated_at?: string | null
+          username?: string | null
         }
         Relationships: []
       }
@@ -242,6 +290,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      transfers: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          recipient_account: string
+          recipient_bank: string | null
+          recipient_country: string | null
+          recipient_name: string
+          reference_number: string
+          status: string
+          transfer_type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          recipient_account: string
+          recipient_bank?: string | null
+          recipient_country?: string | null
+          recipient_name: string
+          reference_number: string
+          status?: string
+          transfer_type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          recipient_account?: string
+          recipient_bank?: string | null
+          recipient_country?: string | null
+          recipient_name?: string
+          reference_number?: string
+          status?: string
+          transfer_type?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
