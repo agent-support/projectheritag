@@ -237,6 +237,15 @@ const Crypto = () => {
           });
           return;
         }
+
+        // Create a transaction record for the bank account
+        await supabase.from("transactions").insert({
+          account_id: accounts[0].id,
+          transaction_type: "credit",
+          amount: usdValue,
+          description: `Converted ${amountNum} ${selectedCoin.symbol} to USD`,
+          status: "completed",
+        });
       }
 
       const receipt = await createTransaction('convert_to_bank', selectedCoin.symbol, amountNum, usdValue);
