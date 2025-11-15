@@ -50,6 +50,33 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_logs: {
+        Row: {
+          action_type: string
+          admin_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          admin_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          admin_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       bills: {
         Row: {
           account_number: string
@@ -348,6 +375,7 @@ export type Database = {
       transfers: {
         Row: {
           amount: number
+          approved_by: string | null
           created_at: string
           id: string
           recipient_account: string
@@ -355,12 +383,14 @@ export type Database = {
           recipient_country: string | null
           recipient_name: string
           reference_number: string
+          rejection_reason: string | null
           status: string
           transfer_type: string
           user_id: string
         }
         Insert: {
           amount: number
+          approved_by?: string | null
           created_at?: string
           id?: string
           recipient_account: string
@@ -368,12 +398,14 @@ export type Database = {
           recipient_country?: string | null
           recipient_name: string
           reference_number: string
+          rejection_reason?: string | null
           status?: string
           transfer_type: string
           user_id: string
         }
         Update: {
           amount?: number
+          approved_by?: string | null
           created_at?: string
           id?: string
           recipient_account?: string
@@ -381,6 +413,7 @@ export type Database = {
           recipient_country?: string | null
           recipient_name?: string
           reference_number?: string
+          rejection_reason?: string | null
           status?: string
           transfer_type?: string
           user_id?: string
@@ -414,6 +447,10 @@ export type Database = {
     }
     Functions: {
       activate_user_account: { Args: { _user_id: string }; Returns: undefined }
+      admin_update_user_status: {
+        Args: { _status: string; _user_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
