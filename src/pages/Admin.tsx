@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Shield, Users, Wallet, TrendingUp, DollarSign, ArrowLeft, CheckCircle, XCircle } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { format } from "date-fns";
-import { UserDetailsDialog } from "@/components/UserDetailsDialog";
+
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -28,8 +28,6 @@ const Admin = () => {
     totalBalance: 0,
     totalCryptoValue: 0
   });
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [userDetailsOpen, setUserDetailsOpen] = useState(false);
 
   useEffect(() => {
     checkAdminAccess();
@@ -147,8 +145,7 @@ const Admin = () => {
   };
 
   const handleViewUserDetails = (userId: string) => {
-    setSelectedUserId(userId);
-    setUserDetailsOpen(true);
+    navigate(`/admin/user/${userId}`);
   };
 
   if (loading) {
@@ -436,15 +433,6 @@ const Admin = () => {
         </div>
       </div>
       <Footer />
-      
-      {selectedUserId && (
-        <UserDetailsDialog
-          open={userDetailsOpen}
-          onOpenChange={setUserDetailsOpen}
-          userId={selectedUserId}
-          onUpdate={loadAdminData}
-        />
-      )}
     </div>
   );
 };
