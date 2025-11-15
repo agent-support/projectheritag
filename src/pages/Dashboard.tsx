@@ -226,7 +226,7 @@ const Dashboard = () => {
                   </div>
                 </Card>
 
-                <Card className="p-6 bg-card border-border hover:border-accent transition-all cursor-pointer">
+                <Card className="p-6 bg-card border-border hover:border-accent transition-all cursor-pointer" onClick={() => navigate("/transactions")}>
                   <div className="flex items-start gap-4">
                     <div className="p-3 bg-accent/10 rounded-lg">
                       <Clock className="w-6 h-6 text-accent" />

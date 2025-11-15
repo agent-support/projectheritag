@@ -19,6 +19,7 @@ import Crypto from "./pages/Crypto";
 import ATMCard from "./pages/ATMCard";
 import MobileDeposit from "./pages/MobileDeposit";
 import Admin from "./pages/Admin";
+import TransactionHistory from "./pages/TransactionHistory";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/atm-card" element={<ATMCard />} />
           <Route path="/mobile-deposit" element={<MobileDeposit />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/transactions" element={<TransactionHistory />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
