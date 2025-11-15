@@ -24,6 +24,7 @@ const Dashboard = () => {
   const [profileName, setProfileName] = useState<string>("");
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [cvv] = useState(() => Math.floor(100 + Math.random() * 900).toString());
+  const [isActive, setIsActive] = useState(true);
   useEffect(() => {
     const checkUser = async () => {
       const {
@@ -112,24 +113,20 @@ const Dashboard = () => {
   }
 
   // Check if user account is inactive
-  const checkUserStatus = async () => {
-    if (!user) return true;
-    
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("status")
-      .eq("id", user.id)
-      .single();
-    
-    return profile?.status === 'active';
-  };
-
-  const [isActive, setIsActive] = useState(true);
-  
   useEffect(() => {
     const checkStatus = async () => {
-      const active = await checkUserStatus();
-      setIsActive(active);
+      if (!user) {
+        setIsActive(true);
+        return;
+      }
+      
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("status")
+        .eq("id", user.id)
+        .single();
+      
+      setIsActive(profile?.status === 'active');
     };
     checkStatus();
   }, [user]);
