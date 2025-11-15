@@ -21,6 +21,7 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [profileName, setProfileName] = useState<string>("");
   useEffect(() => {
     const checkUser = async () => {
       const {
@@ -36,6 +37,18 @@ const Dashboard = () => {
 
       // Load accounts
       await loadAccounts(session.user.id);
+      
+      // Load profile name
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, first_name, last_name")
+        .eq("id", session.user.id)
+        .single();
+      
+      if (profile) {
+        setProfileName(profile.full_name || `${profile.first_name} ${profile.last_name}` || "User");
+      }
+      
       setLoading(false);
     };
     checkUser();
@@ -99,12 +112,10 @@ const Dashboard = () => {
             <Button onClick={handleSignOut} variant="outline">Sign Out</Button>
           </div>
 
-          <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-8">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
+          <Tabs defaultValue="accounts" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="accounts">Accounts</TabsTrigger>
-              <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
-              <TabsTrigger value="bills">Bills</TabsTrigger>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="services">Services</TabsTrigger>
             </TabsList>
 
@@ -232,24 +243,56 @@ const Dashboard = () => {
               </div>
 
               {/* ATM Card */}
-              <Card className="p-8 bg-gradient-to-br from-accent/20 to-accent/5 border-accent/30">
-                <div className="flex justify-between items-start mb-6">
-                  <div className="p-3 bg-accent rounded-full">
-                    <CreditCard className="w-6 h-6 text-background" />
-                  </div>
-                  <div className="text-foreground">Heritage Bank</div>
+              <Card className="relative overflow-hidden p-8 bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 border-0 shadow-xl">
+                {/* Card Background Pattern */}
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-32 translate-x-32"></div>
+                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full translate-y-24 -translate-x-24"></div>
                 </div>
-                <div className="font-mono text-2xl text-foreground mb-6 tracking-wider">
-                  •••• •••• •••• {accounts[0]?.account_number?.slice(-4) || '0000'}
-                </div>
-                <div className="flex justify-between items-end">
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">CARD HOLDER</div>
-                    <div className="font-semibold text-foreground">{user?.email?.split('@')[0].toUpperCase()}</div>
+                
+                <div className="relative z-10">
+                  {/* Top Section - Chip and Contactless */}
+                  <div className="flex justify-between items-start mb-8">
+                    <div className="w-12 h-10 bg-gradient-to-br from-yellow-300 to-yellow-500 rounded-md relative">
+                      <div className="absolute inset-1 bg-gradient-to-br from-yellow-200 to-yellow-400 rounded-sm"></div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex gap-1">
+                        <div className="w-4 h-4 border-2 border-white/60 rounded-full"></div>
+                        <div className="w-4 h-4 border-2 border-white/60 rounded-full -ml-2"></div>
+                      </div>
+                      <span className="text-xs text-white/80 font-medium">Contactless</span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs text-muted-foreground mb-1">EXPIRES</div>
-                    <div className="font-semibold text-foreground">03/30</div>
+
+                  {/* Card Number */}
+                  <div className="font-mono text-2xl text-white mb-8 tracking-[0.3em] font-medium">
+                    {accounts[0]?.account_number ? 
+                      `${accounts[0].account_number.slice(0, 4)} ${accounts[0].account_number.slice(4, 8)} ${accounts[0].account_number.slice(8, 12)} ${accounts[0].account_number.slice(12, 16)}` 
+                      : "4532 7849 6231 0958"}
+                  </div>
+
+                  {/* Bottom Section - Name, Expiry, Visa */}
+                  <div className="flex justify-between items-end">
+                    <div className="flex gap-8">
+                      <div>
+                        <div className="text-xs text-white/60 mb-1 uppercase tracking-wider">Card Holder</div>
+                        <div className="text-sm font-semibold text-white uppercase tracking-wide">
+                          {profileName || "Heritage Customer"}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-white/60 mb-1 uppercase tracking-wider">Expires</div>
+                        <div className="text-sm font-semibold text-white">12/28</div>
+                      </div>
+                    </div>
+                    
+                    {/* Visa Logo */}
+                    <div className="text-white">
+                      <svg viewBox="0 0 48 16" className="h-8 w-auto" fill="currentColor">
+                        <path d="M19.5 0L16.5 16h-3.2l3-16h3.2zm13.6 10.4c0-2.7-4.5-2.8-4.5-4 0-.4.5-1 1.4-1 .8 0 1.8.2 2.6.5l.5-2.4c-.9-.3-2-.6-3.4-.6-3.6 0-6.1 1.9-6.1 4.6 0 2 1.8 3.1 3.2 3.8 1.4.7 1.9 1.1 1.9 1.8 0 1-.8 1.4-2 1.4-1.7 0-2.6-.4-3.3-.7l-.6 2.7c.8.4 2.2.7 3.7.7 3.8 0 6.3-1.9 6.3-4.8zm9.4 5.6h2.8L42.5 0h-2.6c-.6 0-1.1.3-1.3.9L33.2 16h3.8l.8-2.1h4.6l.5 2.1zM39.6 11l1.9-5.2L42.3 11h-2.7zM10.5 0L7 10.9 6.7 9.3c-.6-1.9-2.4-4-4.4-5L5.5 16h3.8l5.7-16h-4.5z"/>
+                      </svg>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -270,30 +313,6 @@ const Dashboard = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="portfolio" className="space-y-6">
-              <Card className="p-6 bg-card border-border">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-foreground">Investment Portfolio</h2>
-                  <Button onClick={() => navigate("/dashboard/portfolio")}>View Details</Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <StatCard label="Total Value" value="$0.00" />
-                  <StatCard label="Total Gain/Loss" value="$0.00" className="text-muted-foreground" />
-                  <StatCard label="Return %" value="0.00%" className="text-muted-foreground" />
-                </div>
-                <p className="text-muted-foreground">Start investing to track your portfolio performance.</p>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="bills" className="space-y-6">
-              <Card className="p-6 bg-card border-border">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-foreground">Bill Payments</h2>
-                  <Button onClick={() => navigate("/dashboard/bills/new")}>Add Bill</Button>
-                </div>
-                <p className="text-muted-foreground">No bills to display. Add your first bill to get started.</p>
-              </Card>
-            </TabsContent>
 
             <TabsContent value="services" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
