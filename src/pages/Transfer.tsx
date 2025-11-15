@@ -111,8 +111,45 @@ const Transfer = () => {
       return;
     }
 
+    // Get user's account
+    const { data: accounts } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("user_id", user!.id)
+      .eq("status", "active")
+      .order("balance", { ascending: false })
+      .limit(1);
+
+    if (!accounts || accounts.length === 0) {
+      toast({ title: "Error", description: "No active account found", variant: "destructive" });
+      return;
+    }
+
+    const account = accounts[0];
+    const transferAmount = parseFloat(transferData.amount);
+    const currentBalance = typeof account.balance === 'string' ? parseFloat(account.balance) : account.balance;
+
+    // Check if user has sufficient balance
+    if (currentBalance < transferAmount) {
+      toast({ title: "Error", description: "Insufficient balance", variant: "destructive" });
+      return;
+    }
+
+    // Deduct from account balance
+    const newBalance = currentBalance - transferAmount;
+    const { error: balanceError } = await supabase
+      .from("accounts")
+      .update({ balance: newBalance })
+      .eq("id", account.id);
+
+    if (balanceError) {
+      toast({ title: "Error", description: balanceError.message, variant: "destructive" });
+      return;
+    }
+
     const referenceNumber = `HER${Date.now()}${Math.floor(Math.random() * 1000)}`;
     
+    // Create transfer record
     const { error } = await supabase
       .from("transfers")
       .insert({
@@ -121,7 +158,7 @@ const Transfer = () => {
         recipient_account: transferData.recipientAccount,
         recipient_bank: transferData.recipientBank,
         recipient_country: transferData.recipientCountry,
-        amount: parseFloat(transferData.amount),
+        amount: transferAmount,
         transfer_type: transferData.transferType,
         reference_number: referenceNumber
       });
@@ -131,6 +168,18 @@ const Transfer = () => {
       return;
     }
 
+    // Create transaction record
+    await supabase
+      .from("transactions")
+      .insert({
+        account_id: account.id,
+        amount: transferAmount,
+        transaction_type: "transfer",
+        description: `Transfer to ${transferData.recipientName}`,
+        recipient: transferData.recipientName,
+        status: "completed"
+      });
+
     setReceiptData({
       ...transferData,
       referenceNumber,
@@ -139,6 +188,8 @@ const Transfer = () => {
     setShowPinVerify(false);
     setVerifyPin("");
     setShowReceipt(true);
+    
+    toast({ title: "Success", description: "Transfer completed successfully" });
   };
 
   return (
