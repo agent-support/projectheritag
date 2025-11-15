@@ -65,6 +65,43 @@ const Crypto = () => {
     }
   }, [cryptoWallets, prices]);
 
+  // Real-time subscription for crypto wallet and transaction updates
+  useEffect(() => {
+    if (!user) return;
+    
+    const channel = supabase
+      .channel('crypto-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'crypto_wallets',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          loadCryptoWallets(user.id);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'crypto_transactions',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          loadTransactions(user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const loadCryptoWallets = async (userId: string) => {
     const { data, error } = await supabase
       .from("crypto_wallets")
