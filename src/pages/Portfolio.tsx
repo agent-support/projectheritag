@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, Plus } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import type { User } from "@supabase/supabase-js";
 
 interface Holding {
@@ -132,7 +132,14 @@ const Portfolio = () => {
           <Card className="p-6 bg-card border-border mb-8">
             <h2 className="text-2xl font-bold text-foreground mb-6">Portfolio Performance</h2>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
+              <ChartContainer
+                config={{
+                  value: {
+                    label: "Portfolio Value",
+                    color: "hsl(var(--accent))",
+                  },
+                }}
+              >
                 <LineChart data={mockChartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--foreground))" />
@@ -146,7 +153,7 @@ const Portfolio = () => {
                     dot={{ fill: "hsl(var(--accent))" }}
                   />
                 </LineChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             </div>
           </Card>
 
