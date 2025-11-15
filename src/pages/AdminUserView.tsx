@@ -37,6 +37,13 @@ const AdminUserView = () => {
   const [editedProfile, setEditedProfile] = useState<any>({});
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [accountBalances, setAccountBalances] = useState<{[key: string]: string}>({});
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [editedTransactions, setEditedTransactions] = useState<{[key: string]: any}>({});
+  const [editingWalletId, setEditingWalletId] = useState<string | null>(null);
+  const [editedWallets, setEditedWallets] = useState<{[key: string]: any}>({});
+  const [pendingTransfers, setPendingTransfers] = useState<any[]>([]);
+  const [addingCrypto, setAddingCrypto] = useState(false);
+  const [cryptoForm, setCryptoForm] = useState({ coinSymbol: 'BTC', amount: '' });
 
   useEffect(() => {
     checkAdminAndLoadData();
@@ -118,6 +125,16 @@ const AdminUserView = () => {
     
     if (transactionsData) setTransactions(transactionsData);
 
+    // Load pending transfers
+    const { data: transfersData } = await supabase
+      .from("transfers")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+    
+    if (transfersData) setPendingTransfers(transfersData);
+
     // Load crypto wallets
     const { data: walletsData } = await supabase
       .from("crypto_wallets")
@@ -172,6 +189,269 @@ const AdminUserView = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleBlockAccount = async (accountId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'blocked' ? 'active' : 'blocked';
+    const { error } = await supabase
+      .from("accounts")
+      .update({ status: newStatus })
+      .eq("id", accountId);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "Success",
+      description: `Account ${newStatus === 'blocked' ? 'blocked' : 'unblocked'} successfully`
+    });
+
+    await loadUserData();
+  };
+
+  const handleEditTransaction = (transaction: any) => {
+    setEditingTransactionId(transaction.id);
+    setEditedTransactions({
+      ...editedTransactions,
+      [transaction.id]: { ...transaction }
+    });
+  };
+
+  const handleSaveTransaction = async (transactionId: string) => {
+    const edited = editedTransactions[transactionId];
+    const { error } = await supabase
+      .from("transactions")
+      .update({
+        amount: Number(edited.amount),
+        description: edited.description,
+        created_at: edited.created_at
+      })
+      .eq("id", transactionId);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "Success",
+      description: "Transaction updated successfully"
+    });
+
+    setEditingTransactionId(null);
+    await loadUserData();
+  };
+
+  const handleApproveTransfer = async (transferId: string) => {
+    const { error } = await supabase
+      .from("transfers")
+      .update({ status: "completed" })
+      .eq("id", transferId);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "Success",
+      description: "Transfer approved successfully"
+    });
+
+    await loadUserData();
+  };
+
+  const handleRejectTransfer = async (transferId: string, amount: number) => {
+    // Reject transfer and refund balance
+    const { error: transferError } = await supabase
+      .from("transfers")
+      .update({ status: "rejected" })
+      .eq("id", transferId);
+
+    if (transferError) {
+      toast({
+        title: "Error",
+        description: transferError.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Refund the amount to the first account
+    if (accounts.length > 0) {
+      await handleAdjustBalance(accounts[0].id, amount);
+    }
+
+    toast({
+      title: "Success",
+      description: "Transfer rejected and amount refunded"
+    });
+
+    await loadUserData();
+  };
+
+  const handleEditWallet = (wallet: any) => {
+    setEditingWalletId(wallet.id);
+    setEditedWallets({
+      ...editedWallets,
+      [wallet.id]: { ...wallet }
+    });
+  };
+
+  const handleSaveWallet = async (walletId: string) => {
+    const edited = editedWallets[walletId];
+    const { error } = await supabase
+      .from("crypto_wallets")
+      .update({
+        wallet_address: edited.wallet_address,
+        balance: Number(edited.balance)
+      })
+      .eq("id", walletId);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "Success",
+      description: "Wallet updated successfully"
+    });
+
+    setEditingWalletId(null);
+    await loadUserData();
+  };
+
+  const handleAddCrypto = async () => {
+    if (!cryptoForm.amount || Number(cryptoForm.amount) <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid amount",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Find or create wallet
+    let wallet = cryptoWallets.find(w => w.coin_symbol === cryptoForm.coinSymbol);
+    
+    if (!wallet) {
+      // Create new wallet
+      const { data: newWallet, error: walletError } = await supabase
+        .from("crypto_wallets")
+        .insert({
+          user_id: userId,
+          coin_symbol: cryptoForm.coinSymbol,
+          wallet_address: `${cryptoForm.coinSymbol}-${Date.now()}`,
+          balance: Number(cryptoForm.amount)
+        })
+        .select()
+        .single();
+
+      if (walletError) {
+        toast({
+          title: "Error",
+          description: walletError.message,
+          variant: "destructive"
+        });
+        return;
+      }
+      wallet = newWallet;
+    } else {
+      // Update existing wallet
+      const { error: updateError } = await supabase
+        .from("crypto_wallets")
+        .update({
+          balance: Number(wallet.balance) + Number(cryptoForm.amount)
+        })
+        .eq("id", wallet.id);
+
+      if (updateError) {
+        toast({
+          title: "Error",
+          description: updateError.message,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    // Create transaction record
+    const { error: txError } = await supabase
+      .from("crypto_transactions")
+      .insert({
+        user_id: userId!,
+        coin_symbol: cryptoForm.coinSymbol,
+        amount: Number(cryptoForm.amount),
+        usd_value: Number(cryptoForm.amount) * 50000, // Placeholder
+        transaction_type: 'deposit',
+        status: 'completed',
+        reference_number: `ADMIN-${Date.now()}`
+      });
+
+    if (txError) {
+      toast({
+        title: "Error",
+        description: txError.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "Success",
+      description: `${cryptoForm.amount} ${cryptoForm.coinSymbol} added successfully`
+    });
+
+    setAddingCrypto(false);
+    setCryptoForm({ coinSymbol: 'BTC', amount: '' });
+    await loadUserData();
+  };
+
+  const handleAdjustBalance = async (accountId: string, adjustment: number) => {
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) return;
+
+    const newBalance = Number(account.balance) + adjustment;
+
+    const { error } = await supabase
+      .from("accounts")
+      .update({ balance: newBalance })
+      .eq("id", accountId);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "Success",
+      description: `Balance ${adjustment > 0 ? 'added' : 'deducted'} successfully`
+    });
+
+    await loadUserData();
   };
 
   const handleSaveAccountBalance = async (accountId: string) => {
@@ -232,10 +512,11 @@ const AdminUserView = () => {
           </div>
 
           <Tabs defaultValue="accounts" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-8">
+            <TabsList className="grid w-full grid-cols-5 mb-8">
               <TabsTrigger value="accounts">Accounts</TabsTrigger>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="profile">Profile</TabsTrigger>
+              <TabsTrigger value="pending">Pending ({pendingTransfers.length})</TabsTrigger>
               <TabsTrigger value="crypto">Crypto</TabsTrigger>
             </TabsList>
 
@@ -285,6 +566,42 @@ const AdminUserView = () => {
                           })}
                         </span>
                       )}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-border space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Status:</span>
+                        <span className={`px-2 py-1 rounded-full text-xs ${
+                          account.status === 'blocked' ? 'bg-red-500/20 text-red-500' : 'bg-green-500/20 text-green-500'
+                        }`}>
+                          {account.status}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <Button 
+                          size="sm" 
+                          variant={account.status === 'blocked' ? 'default' : 'destructive'}
+                          onClick={() => handleBlockAccount(account.id, account.status)}
+                          className="flex-1"
+                        >
+                          {account.status === 'blocked' ? 'Unblock' : 'Block'}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleAdjustBalance(account.id, 100)}
+                          className="flex-1"
+                        >
+                          +$100
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleAdjustBalance(account.id, -100)}
+                          className="flex-1"
+                        >
+                          -$100
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 ))}
