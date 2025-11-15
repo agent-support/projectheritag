@@ -13,6 +13,11 @@ import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import Portfolio from "./pages/Portfolio";
+import Transfer from "./pages/Transfer";
+import Profile from "./pages/Profile";
+import Crypto from "./pages/Crypto";
+import ATMCard from "./pages/ATMCard";
+import MobileDeposit from "./pages/MobileDeposit";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +37,11 @@ const App = () => (
           <Route path="/contact" element={<Contact />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/portfolio" element={<Portfolio />} />
+          <Route path="/transfer" element={<Transfer />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/crypto" element={<Crypto />} />
+          <Route path="/atm-card" element={<ATMCard />} />
+          <Route path="/mobile-deposit" element={<MobileDeposit />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
