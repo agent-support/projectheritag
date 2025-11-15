@@ -84,24 +84,54 @@ const Dashboard = () => {
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <QuickActionCard
                   icon={<ArrowUpRight className="w-6 h-6" />}
                   title="Transfer Money"
-                  description="Send money to accounts"
-                  onClick={() => navigate("/dashboard/transfer")}
-                />
-                <QuickActionCard
-                  icon={<CreditCard className="w-6 h-6" />}
-                  title="Pay Bills"
-                  description="Pay your bills online"
-                  onClick={() => navigate("/dashboard/bills")}
+                  description="Send money locally or internationally"
+                  onClick={() => navigate("/transfer")}
                 />
                 <QuickActionCard
                   icon={<Smartphone className="w-6 h-6" />}
                   title="Mobile Deposit"
-                  description="Deposit checks remotely"
-                  onClick={() => navigate("/dashboard/deposit")}
+                  description="View deposit information"
+                  onClick={() => navigate("/mobile-deposit")}
+                />
+                <QuickActionCard
+                  icon={<Wallet className="w-6 h-6" />}
+                  title="My Profile"
+                  description="Manage your personal information"
+                  onClick={() => navigate("/profile")}
+                />
+                <QuickActionCard
+                  icon={<TrendingUp className="w-6 h-6" />}
+                  title="Crypto Service"
+                  description="Buy, sell, and trade crypto"
+                  onClick={() => navigate("/crypto")}
+                />
+                <QuickActionCard
+                  icon={<CreditCard className="w-6 h-6" />}
+                  title="ATM Card"
+                  description="View your Visa card"
+                  onClick={() => navigate("/atm-card")}
+                />
+                <QuickActionCard
+                  icon={<TrendingUp className="w-6 h-6" />}
+                  title="Portfolio"
+                  description="View investment portfolio"
+                  onClick={() => navigate("/dashboard/portfolio")}
+                />
+                <QuickActionCard
+                  icon={<Wallet className="w-6 h-6" />}
+                  title="Accounts"
+                  description="Manage your accounts"
+                  onClick={() => navigate("/dashboard")}
+                />
+                <QuickActionCard
+                  icon={<FileText className="w-6 h-6" />}
+                  title="Services"
+                  description="View all banking services"
+                  onClick={() => navigate("/dashboard")}
                 />
               </div>
 
