@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { ArrowLeft, TrendingUp, ArrowUpRight, ArrowDownRight, RefreshCw } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
 const CRYPTO_COINS = [
@@ -32,7 +32,10 @@ const Crypto = () => {
   const [selectedCoin, setSelectedCoin] = useState(CRYPTO_COINS[0]);
   const [amount, setAmount] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
-  const [balance] = useState(0);
+  const [cryptoWallets, setCryptoWallets] = useState<any[]>([]);
+  const [totalBalance, setTotalBalance] = useState(0);
+  const [convertAmount, setConvertAmount] = useState("");
+  const [convertingToBank, setConvertingToBank] = useState(true);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -42,12 +45,41 @@ const Crypto = () => {
         return;
       }
       setUser(session.user);
+      await loadCryptoWallets(session.user.id);
     };
     checkUser();
     fetchPrices();
     const interval = setInterval(fetchPrices, 60000);
     return () => clearInterval(interval);
   }, [navigate]);
+
+  useEffect(() => {
+    if (cryptoWallets.length > 0 && Object.keys(prices).length > 0) {
+      calculateTotalBalance();
+    }
+  }, [cryptoWallets, prices]);
+
+  const loadCryptoWallets = async (userId: string) => {
+    const { data, error } = await supabase
+      .from("crypto_wallets")
+      .select("*")
+      .eq("user_id", userId);
+    
+    if (data) {
+      setCryptoWallets(data);
+    }
+  };
+
+  const calculateTotalBalance = () => {
+    let total = 0;
+    cryptoWallets.forEach(wallet => {
+      const coin = CRYPTO_COINS.find(c => c.symbol === wallet.coin_symbol);
+      if (coin && prices[coin.id]) {
+        total += (wallet.balance || 0) * prices[coin.id].usd;
+      }
+    });
+    setTotalBalance(total);
+  };
 
   const fetchPrices = async () => {
     try {
@@ -62,6 +94,156 @@ const Crypto = () => {
     }
   };
 
+  const handleConvert = async () => {
+    if (!user || !convertAmount || parseFloat(convertAmount) <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid amount to convert",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const amountNum = parseFloat(convertAmount);
+
+    if (convertingToBank) {
+      // Convert crypto to bank (USD)
+      const wallet = cryptoWallets.find(w => w.coin_symbol === selectedCoin.symbol);
+      if (!wallet || wallet.balance < amountNum) {
+        toast({
+          title: "Insufficient Balance",
+          description: `You don't have enough ${selectedCoin.symbol}`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const coin = CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol);
+      const usdValue = amountNum * (prices[coin!.id]?.usd || 0);
+
+      // Update crypto wallet
+      const { error: walletError } = await supabase
+        .from("crypto_wallets")
+        .update({ balance: wallet.balance - amountNum })
+        .eq("id", wallet.id);
+
+      if (walletError) {
+        toast({
+          title: "Conversion Failed",
+          description: "Failed to update crypto balance",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Get user's bank account
+      const { data: accounts } = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .limit(1);
+
+      if (accounts && accounts.length > 0) {
+        const { error: accountError } = await supabase
+          .from("accounts")
+          .update({ balance: (accounts[0].balance || 0) + usdValue })
+          .eq("id", accounts[0].id);
+
+        if (accountError) {
+          toast({
+            title: "Conversion Failed",
+            description: "Failed to update bank balance",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
+      toast({
+        title: "Conversion Successful",
+        description: `Converted ${amountNum} ${selectedCoin.symbol} to $${usdValue.toFixed(2)}`,
+      });
+    } else {
+      // Convert bank (USD) to crypto
+      const { data: accounts } = await supabase
+        .from("accounts")
+        .select("*")
+        .eq("user_id", user.id)
+        .limit(1);
+
+      if (!accounts || accounts.length === 0 || (accounts[0].balance || 0) < amountNum) {
+        toast({
+          title: "Insufficient Balance",
+          description: "You don't have enough USD in your bank account",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const coin = CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol);
+      const cryptoAmount = amountNum / (prices[coin!.id]?.usd || 1);
+
+      // Update bank account
+      const { error: accountError } = await supabase
+        .from("accounts")
+        .update({ balance: (accounts[0].balance || 0) - amountNum })
+        .eq("id", accounts[0].id);
+
+      if (accountError) {
+        toast({
+          title: "Conversion Failed",
+          description: "Failed to update bank balance",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Update or create crypto wallet
+      const wallet = cryptoWallets.find(w => w.coin_symbol === selectedCoin.symbol);
+      if (wallet) {
+        const { error: walletError } = await supabase
+          .from("crypto_wallets")
+          .update({ balance: (wallet.balance || 0) + cryptoAmount })
+          .eq("id", wallet.id);
+
+        if (walletError) {
+          toast({
+            title: "Conversion Failed",
+            description: "Failed to update crypto balance",
+            variant: "destructive"
+          });
+          return;
+        }
+      } else {
+        const { error: createError } = await supabase
+          .from("crypto_wallets")
+          .insert({
+            user_id: user.id,
+            coin_symbol: selectedCoin.symbol,
+            wallet_address: selectedCoin.address,
+            balance: cryptoAmount
+          });
+
+        if (createError) {
+          toast({
+            title: "Conversion Failed",
+            description: "Failed to create crypto wallet",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
+      toast({
+        title: "Conversion Successful",
+        description: `Converted $${amountNum} to ${cryptoAmount.toFixed(8)} ${selectedCoin.symbol}`,
+      });
+    }
+
+    setConvertAmount("");
+    await loadCryptoWallets(user.id);
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     toast({ 
@@ -70,14 +252,6 @@ const Crypto = () => {
     });
     setAmount("");
     setWalletAddress("");
-  };
-
-  const handleReceive = async () => {
-    toast({ 
-      title: "Deposit Address", 
-      description: selectedCoin.address,
-      duration: 10000
-    });
   };
 
   return (
@@ -90,16 +264,16 @@ const Crypto = () => {
             Back to Dashboard
           </Button>
 
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col items-center mb-8">
+            <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-accent/20 rounded-full flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-accent" />
               </div>
               <h1 className="text-4xl font-bold text-foreground">Crypto Service</h1>
             </div>
-            <Card className="p-6 bg-card border-border">
-              <p className="text-sm text-muted-foreground mb-1">Total Balance</p>
-              <p className="text-3xl font-bold text-foreground">${balance.toFixed(2)}</p>
+            <Card className="p-8 bg-card border-border">
+              <p className="text-sm text-muted-foreground mb-2 text-center">Total Crypto Balance</p>
+              <p className="text-4xl font-bold text-foreground text-center">${totalBalance.toFixed(2)}</p>
             </Card>
           </div>
 
@@ -107,34 +281,114 @@ const Crypto = () => {
             {CRYPTO_COINS.map((coin) => {
               const price = prices[coin.id];
               const change = price?.usd_24h_change || 0;
+              const wallet = cryptoWallets.find(w => w.coin_symbol === coin.symbol);
+              const balance = wallet?.balance || 0;
+              const balanceUSD = balance * (price?.usd || 0);
+              
               return (
                 <Card key={coin.symbol} className="p-6 bg-card border-border hover:border-accent transition-all">
-                  <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-lg font-bold text-foreground">{coin.symbol}</h3>
-                      <p className="text-sm text-muted-foreground">{coin.name}</p>
+                      <h3 className="text-lg font-semibold text-foreground">{coin.name}</h3>
+                      <p className="text-sm text-muted-foreground">{coin.symbol}</p>
                     </div>
-                    {change !== 0 && (
-                      <div className={`flex items-center gap-1 ${change > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {change > 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                        <span className="text-sm font-semibold">{Math.abs(change).toFixed(2)}%</span>
-                      </div>
-                    )}
+                    <div className={`flex items-center gap-1 ${change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                      {change >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                      <span className="text-sm font-medium">{Math.abs(change).toFixed(2)}%</span>
+                    </div>
                   </div>
-                  <div className="text-2xl font-bold text-foreground">
-                    ${price?.usd?.toLocaleString() || "Loading..."}
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Price:</span>
+                      <span className="font-semibold text-foreground">${price?.usd?.toLocaleString() || '0'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Balance:</span>
+                      <span className="font-semibold text-foreground">{balance.toFixed(8)} {coin.symbol}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">USD Value:</span>
+                      <span className="font-semibold text-accent">${balanceUSD.toFixed(2)}</span>
+                    </div>
                   </div>
                 </Card>
               );
             })}
           </div>
 
-          <Tabs defaultValue="send" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-8">
-              <TabsTrigger value="send">Send Crypto</TabsTrigger>
-              <TabsTrigger value="receive">Receive Crypto</TabsTrigger>
-              <TabsTrigger value="fund">Fund Wallet</TabsTrigger>
+          <Tabs defaultValue="convert" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 bg-card border border-border">
+              <TabsTrigger value="convert">Convert</TabsTrigger>
+              <TabsTrigger value="send">Send</TabsTrigger>
+              <TabsTrigger value="receive">Receive</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="convert">
+              <Card className="p-6 bg-card border-border">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    <Button
+                      variant={convertingToBank ? "default" : "outline"}
+                      onClick={() => setConvertingToBank(true)}
+                      className="flex-1"
+                    >
+                      Crypto → Bank
+                    </Button>
+                    <Button
+                      variant={!convertingToBank ? "default" : "outline"}
+                      onClick={() => setConvertingToBank(false)}
+                      className="flex-1"
+                    >
+                      Bank → Crypto
+                    </Button>
+                  </div>
+                  
+                  <div>
+                    <Label>Select Cryptocurrency</Label>
+                    <select 
+                      className="w-full p-2 rounded-md bg-background border border-border text-foreground"
+                      onChange={(e) => setSelectedCoin(CRYPTO_COINS.find(c => c.symbol === e.target.value) || CRYPTO_COINS[0])}
+                      value={selectedCoin.symbol}
+                    >
+                      {CRYPTO_COINS.map(coin => (
+                        <option key={coin.symbol} value={coin.symbol}>{coin.name} ({coin.symbol})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label>{convertingToBank ? `Amount (${selectedCoin.symbol})` : 'Amount (USD)'}</Label>
+                    <Input 
+                      type="number"
+                      step="0.00000001"
+                      placeholder={convertingToBank ? `Enter ${selectedCoin.symbol} amount` : "Enter USD amount"}
+                      value={convertAmount}
+                      onChange={(e) => setConvertAmount(e.target.value)}
+                    />
+                  </div>
+
+                  {convertAmount && (
+                    <div className="p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground mb-1">You will receive:</p>
+                      {convertingToBank ? (
+                        <p className="text-lg font-bold text-foreground">
+                          ${(parseFloat(convertAmount) * (prices[CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol)!.id]?.usd || 0)).toFixed(2)}
+                        </p>
+                      ) : (
+                        <p className="text-lg font-bold text-foreground">
+                          {(parseFloat(convertAmount) / (prices[CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol)!.id]?.usd || 1)).toFixed(8)} {selectedCoin.symbol}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <Button onClick={handleConvert} className="w-full">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Convert Now
+                  </Button>
+                </div>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="send">
               <Card className="p-6 bg-card border-border">
@@ -211,33 +465,6 @@ const Crypto = () => {
                       Copy Address
                     </Button>
                   </div>
-                </div>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="fund">
-              <Card className="p-6 bg-card border-border">
-                <div className="space-y-4">
-                  <div>
-                    <Label>Select Cryptocurrency</Label>
-                    <select 
-                      className="w-full p-2 rounded-md bg-background border border-border text-foreground"
-                      onChange={(e) => setSelectedCoin(CRYPTO_COINS.find(c => c.symbol === e.target.value) || CRYPTO_COINS[0])}
-                    >
-                      {CRYPTO_COINS.map(coin => (
-                        <option key={coin.symbol} value={coin.symbol}>{coin.name} ({coin.symbol})</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label>Amount to Fund</Label>
-                    <Input 
-                      type="number" 
-                      step="0.00000001"
-                      placeholder={`Enter ${selectedCoin.symbol} amount`}
-                    />
-                  </div>
-                  <Button className="w-full">Fund Wallet</Button>
                 </div>
               </Card>
             </TabsContent>
