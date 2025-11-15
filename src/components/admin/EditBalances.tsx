@@ -52,19 +52,83 @@ export const EditBalances = () => {
   };
 
   const updateBalance = async (operation: "add" | "subtract") => {
-    if (!selectedAccount || !amount) {
+    if (!selectedUser || !amount) {
       toast({
         title: "Error",
-        description: "Please select an account and enter an amount",
+        description: "Please select a user and enter an amount",
         variant: "destructive",
       });
       return;
     }
 
-    const account = accounts.find((a) => a.id === selectedAccount);
-    if (!account) return;
+    // If no account exists, create one
+    if (accounts.length === 0) {
+      const accountNumber = `ACC${Date.now()}`;
+      const { data: newAccount, error: createError } = await supabase
+        .from("accounts")
+        .insert({
+          user_id: selectedUser,
+          account_type: "checking",
+          account_number: accountNumber,
+          balance: operation === "add" ? Number(amount) : 0,
+          currency: "USD",
+          status: "active"
+        })
+        .select()
+        .single();
 
-    const currentBalance = Number(account.balance);
+      if (createError || !newAccount) {
+        toast({
+          title: "Error",
+          description: "Failed to create account",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create transaction record
+      await supabase.from("transactions").insert({
+        account_id: newAccount.id,
+        transaction_type: "credit",
+        amount: Number(amount),
+        description: `Admin added initial funds`,
+        status: "completed",
+      });
+
+      // Log action
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("admin_logs").insert({
+          admin_id: user.id,
+          action_type: `balance_add`,
+          target_user_id: selectedUser,
+          details: { 
+            account_id: newAccount.id, 
+            amount: Number(amount), 
+            previous_balance: 0,
+            new_balance: Number(amount)
+          },
+        });
+      }
+
+      toast({
+        title: "Success",
+        description: "Account created and funded successfully",
+      });
+
+      setAmount("");
+      loadUserAccounts(selectedUser);
+      return;
+    }
+
+    // Use existing account or selected account
+    const targetAccount = selectedAccount 
+      ? accounts.find((a) => a.id === selectedAccount)
+      : accounts[0];
+      
+    if (!targetAccount) return;
+
+    const currentBalance = Number(targetAccount.balance);
     const changeAmount = Number(amount);
     const newBalance = operation === "add" 
       ? currentBalance + changeAmount 
@@ -82,7 +146,7 @@ export const EditBalances = () => {
     const { error } = await supabase
       .from("accounts")
       .update({ balance: newBalance })
-      .eq("id", selectedAccount);
+      .eq("id", targetAccount.id);
 
     if (error) {
       toast({
@@ -95,7 +159,7 @@ export const EditBalances = () => {
 
     // Create transaction record
     await supabase.from("transactions").insert({
-      account_id: selectedAccount,
+      account_id: targetAccount.id,
       transaction_type: operation === "add" ? "credit" : "debit",
       amount: changeAmount,
       description: `Admin ${operation === "add" ? "added" : "deducted"} funds`,
@@ -110,7 +174,7 @@ export const EditBalances = () => {
         action_type: `balance_${operation}`,
         target_user_id: selectedUser,
         details: { 
-          account_id: selectedAccount, 
+          account_id: targetAccount.id, 
           amount: changeAmount, 
           previous_balance: currentBalance,
           new_balance: newBalance 
@@ -176,9 +240,30 @@ export const EditBalances = () => {
           {selectedUser && (
             <>
               {accounts.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>This user has no bank accounts yet.</p>
-                  <p className="text-sm mt-2">Please create an account for this user first.</p>
+                <div className="space-y-4">
+                  <div className="text-center py-4 text-muted-foreground bg-muted/30 rounded-lg">
+                    <p>This user has no bank accounts yet.</p>
+                    <p className="text-sm mt-2">A new account will be created when you add funds.</p>
+                  </div>
+                  <div>
+                    <Label>Amount</Label>
+                    <Input
+                      type="number"
+                      placeholder="Enter amount to fund"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    onClick={() => updateBalance("add")}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Account & Add Funds
+                  </Button>
                 </div>
               ) : (
                 <>
