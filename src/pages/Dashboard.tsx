@@ -23,6 +23,7 @@ const Dashboard = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [profileName, setProfileName] = useState<string>("");
   const [isCardFlipped, setIsCardFlipped] = useState(false);
+  const [cvv] = useState(() => Math.floor(100 + Math.random() * 900).toString());
   useEffect(() => {
     const checkUser = async () => {
       const {
@@ -343,7 +344,7 @@ const Dashboard = () => {
                               <div className="text-right">
                                 <div className="text-[10px] text-gray-600 uppercase tracking-wider">CVV</div>
                                 <div className="font-mono text-sm font-bold text-gray-900">
-                                  {Math.floor(100 + Math.random() * 900)}
+                                  {cvv}
                                 </div>
                               </div>
                             </div>
