@@ -209,11 +209,14 @@ export type Database = {
         Row: {
           address: string | null
           age: number | null
+          country: string | null
           created_at: string | null
           date_of_birth: string | null
           email: string
+          first_name: string | null
           full_name: string
           id: string
+          last_name: string | null
           phone: string | null
           profile_picture_url: string | null
           transfer_pin: string | null
@@ -223,11 +226,14 @@ export type Database = {
         Insert: {
           address?: string | null
           age?: number | null
+          country?: string | null
           created_at?: string | null
           date_of_birth?: string | null
           email: string
+          first_name?: string | null
           full_name: string
           id: string
+          last_name?: string | null
           phone?: string | null
           profile_picture_url?: string | null
           transfer_pin?: string | null
@@ -237,11 +243,14 @@ export type Database = {
         Update: {
           address?: string | null
           age?: number | null
+          country?: string | null
           created_at?: string | null
           date_of_birth?: string | null
           email?: string
+          first_name?: string | null
           full_name?: string
           id?: string
+          last_name?: string | null
           phone?: string | null
           profile_picture_url?: string | null
           transfer_pin?: string | null

@@ -8,13 +8,21 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Upload } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [country, setCountry] = useState("");
+  const [address, setAddress] = useState("");
+  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
+  const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -68,13 +76,42 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      let profilePictureUrl = "";
+
+      // Upload profile picture if provided
+      if (profilePicture) {
+        const fileExt = profilePicture.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('profile-pictures')
+          .upload(filePath, profilePicture);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('profile-pictures')
+          .getPublicUrl(filePath);
+
+        profilePictureUrl = publicUrl;
+      }
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
-            full_name: fullName,
+            first_name: firstName,
+            last_name: lastName,
+            full_name: `${firstName} ${lastName}`,
+            date_of_birth: dateOfBirth,
+            country,
+            address,
+            username,
+            phone,
+            profile_picture_url: profilePictureUrl,
           },
         },
       });
@@ -141,15 +178,39 @@ const Auth = () => {
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-6">
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-foreground">First Name</label>
+                      <Input 
+                        type="text" 
+                        placeholder="First name" 
+                        className="bg-background"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-foreground">Last Name</label>
+                      <Input 
+                        type="text" 
+                        placeholder="Last name" 
+                        className="bg-background"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2 text-foreground">Full Name</label>
+                    <label className="block text-sm font-medium mb-2 text-foreground">Username</label>
                     <Input 
                       type="text" 
-                      placeholder="Enter your full name" 
+                      placeholder="Choose a username" 
                       className="bg-background"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       required
                     />
                   </div>
@@ -163,6 +224,61 @@ const Auth = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-foreground">Phone Number</label>
+                    <Input 
+                      type="tel" 
+                      placeholder="Enter your phone number" 
+                      className="bg-background"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-foreground">Date of Birth</label>
+                    <Input 
+                      type="date" 
+                      className="bg-background"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-foreground">Country</label>
+                    <Input 
+                      type="text" 
+                      placeholder="Enter your country" 
+                      className="bg-background"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-foreground">House Address</label>
+                    <Input 
+                      type="text" 
+                      placeholder="Enter your address" 
+                      className="bg-background"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-foreground">Profile Picture</label>
+                    <div className="flex items-center gap-2">
+                      <Input 
+                        type="file" 
+                        accept="image/*"
+                        className="bg-background"
+                        onChange={(e) => setProfilePicture(e.target.files?.[0] || null)}
+                      />
+                      <Upload className="w-5 h-5 text-muted-foreground" />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2 text-foreground">Password</label>

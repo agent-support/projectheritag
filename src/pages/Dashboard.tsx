@@ -163,12 +163,110 @@ const Dashboard = () => {
             </TabsContent>
 
             <TabsContent value="accounts" className="space-y-6">
-              <Card className="p-6 bg-card border-border">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-foreground">My Accounts</h2>
-                  <Button onClick={() => navigate("/dashboard/accounts/new")}>Add Account</Button>
+              {/* Account Balance Card */}
+              <Card className="p-8 bg-card border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet className="w-5 h-5 text-muted-foreground" />
+                  <h2 className="text-lg font-medium text-muted-foreground">Account Balance</h2>
                 </div>
-                <p className="text-muted-foreground">No accounts yet. Create your first account to get started.</p>
+                <div className="mb-6">
+                  <div className="text-5xl font-bold text-foreground mb-2">
+                    ${accounts.reduce((sum, acc) => sum + parseFloat(acc.balance?.toString() || '0'), 0).toLocaleString('en-US', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
+                  </div>
+                  <p className="text-sm text-muted-foreground">Available Balance</p>
+                </div>
+              </Card>
+
+              {/* Quick Action Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="p-6 bg-card border-border hover:border-accent transition-all cursor-pointer" onClick={() => navigate("/transfer")}>
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-accent/10 rounded-lg">
+                      <ArrowUpRight className="w-6 h-6 text-accent" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-1">Withdraw Money</h3>
+                      <p className="text-sm text-muted-foreground">Transfer funds locally or internationally</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-6 bg-card border-border hover:border-accent transition-all cursor-pointer" onClick={() => navigate("/mobile-deposit")}>
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-accent/10 rounded-lg">
+                      <ArrowDownRight className="w-6 h-6 text-accent" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-1">Receive Money</h3>
+                      <p className="text-sm text-muted-foreground">View account details for incoming transfers</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-6 bg-card border-border hover:border-accent transition-all cursor-pointer">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-accent/10 rounded-lg">
+                      <Clock className="w-6 h-6 text-accent" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-1">Transaction History</h3>
+                      <p className="text-sm text-muted-foreground">View all your transactions</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-6 bg-card border-border hover:border-accent transition-all cursor-pointer" onClick={() => navigate("/profile")}>
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-accent/10 rounded-lg">
+                      <FileText className="w-6 h-6 text-accent" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-1">Settings</h3>
+                      <p className="text-sm text-muted-foreground">Manage your account preferences</p>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* ATM Card */}
+              <Card className="p-8 bg-gradient-to-br from-accent/20 to-accent/5 border-accent/30">
+                <div className="flex justify-between items-start mb-6">
+                  <div className="p-3 bg-accent rounded-full">
+                    <CreditCard className="w-6 h-6 text-background" />
+                  </div>
+                  <div className="text-foreground">Heritage Bank</div>
+                </div>
+                <div className="font-mono text-2xl text-foreground mb-6 tracking-wider">
+                  •••• •••• •••• {accounts[0]?.account_number?.slice(-4) || '0000'}
+                </div>
+                <div className="flex justify-between items-end">
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">CARD HOLDER</div>
+                    <div className="font-semibold text-foreground">{user?.email?.split('@')[0].toUpperCase()}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-muted-foreground mb-1">EXPIRES</div>
+                    <div className="font-semibold text-foreground">03/30</div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Account Secured */}
+              <Card className="p-6 bg-card border-border">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-green-500/10 rounded-lg">
+                    <Shield className="w-6 h-6 text-green-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-2">Account Secured</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Your account is protected with advanced security and encrypted transactions.
+                    </p>
+                  </div>
+                </div>
               </Card>
             </TabsContent>
 
