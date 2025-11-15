@@ -25,6 +25,7 @@ const Dashboard = () => {
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [cvv] = useState(() => Math.floor(100 + Math.random() * 900).toString());
   const [isActive, setIsActive] = useState(true);
+  
   useEffect(() => {
     const checkUser = async () => {
       const {
@@ -48,6 +49,7 @@ const Dashboard = () => {
       if (profile) {
         // If user is inactive, show message
         if (profile.status === 'inactive') {
+          setIsActive(false);
           setLoading(false);
           return;
         }
@@ -91,6 +93,26 @@ const Dashboard = () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
+  // Check if user account is inactive
+  useEffect(() => {
+    const checkStatus = async () => {
+      if (!user) {
+        setIsActive(true);
+        return;
+      }
+      
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("status")
+        .eq("id", user.id)
+        .single();
+      
+      setIsActive(profile?.status === 'active');
+    };
+    checkStatus();
+  }, [user]);
+
   const loadAccounts = async (userId: string) => {
     const {
       data,
@@ -111,25 +133,6 @@ const Dashboard = () => {
         <div className="text-foreground">Loading...</div>
       </div>;
   }
-
-  // Check if user account is inactive
-  useEffect(() => {
-    const checkStatus = async () => {
-      if (!user) {
-        setIsActive(true);
-        return;
-      }
-      
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("status")
-        .eq("id", user.id)
-        .single();
-      
-      setIsActive(profile?.status === 'active');
-    };
-    checkStatus();
-  }, [user]);
 
   if (!isActive) {
     return (
