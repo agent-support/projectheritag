@@ -89,6 +89,48 @@ export type Database = {
         }
         Relationships: []
       }
+      crypto_transactions: {
+        Row: {
+          amount: number
+          coin_symbol: string
+          created_at: string
+          id: string
+          recipient_address: string | null
+          reference_number: string
+          status: string
+          transaction_type: string
+          updated_at: string
+          usd_value: number
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          coin_symbol: string
+          created_at?: string
+          id?: string
+          recipient_address?: string | null
+          reference_number: string
+          status?: string
+          transaction_type: string
+          updated_at?: string
+          usd_value: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          coin_symbol?: string
+          created_at?: string
+          id?: string
+          recipient_address?: string | null
+          reference_number?: string
+          status?: string
+          transaction_type?: string
+          updated_at?: string
+          usd_value?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       crypto_wallets: {
         Row: {
           balance: number | null
