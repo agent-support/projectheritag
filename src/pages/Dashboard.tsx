@@ -24,8 +24,6 @@ const Dashboard = () => {
   const [profileName, setProfileName] = useState<string>("");
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [cvv] = useState(() => Math.floor(100 + Math.random() * 900).toString());
-  const [isActive, setIsActive] = useState(true);
-  
   useEffect(() => {
     const checkUser = async () => {
       const {
@@ -39,26 +37,19 @@ const Dashboard = () => {
       }
       setUser(session.user);
 
-      // Check user status
+      // Load accounts
+      await loadAccounts(session.user.id);
+      
+      // Load profile name
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, first_name, last_name, status")
+        .select("full_name, first_name, last_name")
         .eq("id", session.user.id)
         .single();
       
       if (profile) {
-        // If user is inactive, show message
-        if (profile.status === 'inactive') {
-          setIsActive(false);
-          setLoading(false);
-          return;
-        }
-        
         setProfileName(profile.full_name || `${profile.first_name} ${profile.last_name}` || "User");
       }
-
-      // Load accounts
-      await loadAccounts(session.user.id);
       
       setLoading(false);
     };
@@ -93,26 +84,6 @@ const Dashboard = () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
-
-  // Check if user account is inactive
-  useEffect(() => {
-    const checkStatus = async () => {
-      if (!user) {
-        setIsActive(true);
-        return;
-      }
-      
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("status")
-        .eq("id", user.id)
-        .single();
-      
-      setIsActive(profile?.status === 'active');
-    };
-    checkStatus();
-  }, [user]);
-
   const loadAccounts = async (userId: string) => {
     const {
       data,
@@ -122,39 +93,14 @@ const Dashboard = () => {
       setAccounts(data as Account[]);
     }
   };
-  
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/");
   };
-  
   if (loading) {
     return <div className="min-h-screen bg-primary flex items-center justify-center">
         <div className="text-foreground">Loading...</div>
       </div>;
-  }
-
-  if (!isActive) {
-    return (
-      <div className="min-h-screen bg-primary">
-        <Navbar />
-        <div className="pt-24 pb-12 flex items-center justify-center min-h-[80vh]">
-          <Card className="max-w-md mx-4 p-8 bg-card border-border text-center">
-            <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-8 h-8 text-yellow-500" />
-            </div>
-            <h2 className="text-2xl font-bold text-foreground mb-4">Account Not Activated</h2>
-            <p className="text-muted-foreground mb-6">
-              Your account is not yet activated. Please try and reach the support team so your account will be activated.
-            </p>
-            <Button onClick={handleSignOut} variant="outline" className="w-full">
-              Sign Out
-            </Button>
-          </Card>
-        </div>
-        <Footer />
-      </div>
-    );
   }
   return <div className="min-h-screen bg-primary">
       <Navbar />

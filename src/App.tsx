@@ -18,8 +18,6 @@ import Profile from "./pages/Profile";
 import Crypto from "./pages/Crypto";
 import ATMCard from "./pages/ATMCard";
 import MobileDeposit from "./pages/MobileDeposit";
-import Admin from "./pages/Admin";
-import AdminUserView from "./pages/AdminUserView";
 
 const queryClient = new QueryClient();
 
@@ -44,8 +42,6 @@ const App = () => (
           <Route path="/crypto" element={<Crypto />} />
           <Route path="/atm-card" element={<ATMCard />} />
           <Route path="/mobile-deposit" element={<MobileDeposit />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/admin/user/:userId" element={<AdminUserView />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -111,34 +111,6 @@ const Transfer = () => {
       return;
     }
 
-    // Check if user's account is blocked
-    const { data: accounts } = await supabase
-      .from("accounts")
-      .select("status")
-      .eq("user_id", user!.id)
-      .limit(1);
-
-    const isBlocked = accounts && accounts.length > 0 && accounts[0].status === 'blocked';
-    const transferStatus = isBlocked ? 'pending' : 'completed';
-
-    // If blocked, deduct balance first
-    if (isBlocked && accounts && accounts.length > 0) {
-      const { data: accountData } = await supabase
-        .from("accounts")
-        .select("id, balance")
-        .eq("user_id", user!.id)
-        .limit(1)
-        .single();
-
-      if (accountData) {
-        const newBalance = Number(accountData.balance) - parseFloat(transferData.amount);
-        await supabase
-          .from("accounts")
-          .update({ balance: newBalance })
-          .eq("id", accountData.id);
-      }
-    }
-
     const referenceNumber = `HER${Date.now()}${Math.floor(Math.random() * 1000)}`;
     
     const { error } = await supabase
@@ -151,8 +123,7 @@ const Transfer = () => {
         recipient_country: transferData.recipientCountry,
         amount: parseFloat(transferData.amount),
         transfer_type: transferData.transferType,
-        reference_number: referenceNumber,
-        status: transferStatus
+        reference_number: referenceNumber
       });
 
     if (error) {
@@ -160,20 +131,10 @@ const Transfer = () => {
       return;
     }
 
-    if (isBlocked) {
-      toast({ 
-        title: "Payment Pending", 
-        description: "Payment has been put on pending because this account has been suspended. Please reach out to our support or message support@heritagebank.com", 
-        variant: "destructive",
-        duration: 10000
-      });
-    }
-
     setReceiptData({
       ...transferData,
       referenceNumber,
-      date: new Date().toLocaleString(),
-      status: transferStatus
+      date: new Date().toLocaleString()
     });
     setShowPinVerify(false);
     setVerifyPin("");
