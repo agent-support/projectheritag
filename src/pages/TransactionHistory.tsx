@@ -109,56 +109,59 @@ Thank you for banking with us.
       <Navbar />
       <div className="pt-24 pb-12">
         <div className="container mx-auto px-4 max-w-4xl">
-          <Button onClick={() => navigate("/dashboard")} variant="ghost" className="mb-6">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
+          <Button onClick={() => navigate("/dashboard")} variant="ghost" className="mb-4 text-sm">
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
           </Button>
 
-          <h1 className="text-4xl font-bold text-foreground mb-8">Transaction History</h1>
+          <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-4 sm:mb-8">Transactions</h1>
 
           {loading ? (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">Loading transactions...</p>
+            <Card className="p-4 sm:p-8 text-center">
+              <p className="text-sm sm:text-base text-muted-foreground">Loading...</p>
             </Card>
           ) : transactions.length === 0 ? (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">No transactions found</p>
+            <Card className="p-4 sm:p-8 text-center">
+              <p className="text-sm sm:text-base text-muted-foreground">No transactions</p>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {transactions.map((transaction) => (
                 <Card
                   key={transaction.id}
-                  className="p-4 hover:bg-accent/50 cursor-pointer transition-colors"
+                  className="p-3 sm:p-4 hover:bg-accent/50 cursor-pointer transition-colors"
                   onClick={() => handleTransactionClick(transaction)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className={`p-1.5 sm:p-2 rounded-full flex-shrink-0 ${
                         transaction.transaction_type === 'debit' || transaction.transaction_type === 'transfer'
                           ? 'bg-destructive/10'
                           : 'bg-green-500/10'
                       }`}>
                         {transaction.transaction_type === 'debit' || transaction.transaction_type === 'transfer' ? (
-                          <ArrowUpCircle className="w-5 h-5 text-destructive" />
+                          <ArrowUpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-destructive" />
                         ) : (
-                          <ArrowDownCircle className="w-5 h-5 text-green-500" />
+                          <ArrowDownCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
                         )}
                       </div>
-                      <div>
-                        <p className="font-semibold text-foreground">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground text-sm sm:text-base truncate">
                           {transaction.description || transaction.transaction_type.toUpperCase()}
                         </p>
                         {transaction.recipient && (
-                          <p className="text-sm text-muted-foreground">To: {transaction.recipient}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                            {transaction.recipient}
+                          </p>
                         )}
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(transaction.created_at), 'PPp')}
+                          {format(new Date(transaction.created_at), 'MMM d, h:mm a')}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`font-bold ${
+                    <div className="text-right flex-shrink-0">
+                      <p className={`font-bold text-sm sm:text-base ${
                         transaction.transaction_type === 'debit' || transaction.transaction_type === 'transfer'
                           ? 'text-destructive'
                           : 'text-green-500'
@@ -178,33 +181,33 @@ Thank you for banking with us.
       <Footer />
 
       <Dialog open={showReceipt} onOpenChange={setShowReceipt}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Transaction Receipt</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">Receipt</DialogTitle>
           </DialogHeader>
           {selectedTransaction && (
-            <div className="space-y-4">
-              <div className="text-center py-4 border-b">
-                <h3 className="text-xl font-bold">Heritage Bank</h3>
-                <p className="text-sm text-muted-foreground">Transaction Receipt</p>
+            <div className="space-y-3 sm:space-y-4">
+              <div className="text-center py-3 sm:py-4 border-b">
+                <h3 className="text-lg sm:text-xl font-bold">Heritage Bank</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground">Transaction Receipt</p>
               </div>
               
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Reference:</span>
-                  <span className="font-mono">{selectedTransaction.id.substring(0, 8).toUpperCase()}</span>
+              <div className="space-y-2 sm:space-y-3 text-sm sm:text-base">
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground text-xs sm:text-sm">Ref:</span>
+                  <span className="font-mono text-xs sm:text-sm">{selectedTransaction.id.substring(0, 8).toUpperCase()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Date:</span>
-                  <span>{format(new Date(selectedTransaction.created_at), 'PPp')}</span>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground text-xs sm:text-sm">Date:</span>
+                  <span className="text-xs sm:text-sm">{format(new Date(selectedTransaction.created_at), 'MMM d, yyyy h:mm a')}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Type:</span>
-                  <span className="capitalize">{selectedTransaction.transaction_type}</span>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground text-xs sm:text-sm">Type:</span>
+                  <span className="capitalize text-xs sm:text-sm">{selectedTransaction.transaction_type}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Amount:</span>
-                  <span className={`font-bold ${
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground text-xs sm:text-sm">Amount:</span>
+                  <span className={`font-bold text-sm sm:text-base ${
                     selectedTransaction.transaction_type === 'debit' || selectedTransaction.transaction_type === 'transfer'
                       ? 'text-destructive'
                       : 'text-green-500'
@@ -214,30 +217,30 @@ Thank you for banking with us.
                   </span>
                 </div>
                 {selectedTransaction.recipient && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Recipient:</span>
-                    <span>{selectedTransaction.recipient}</span>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground text-xs sm:text-sm">To:</span>
+                    <span className="text-xs sm:text-sm text-right break-all">{selectedTransaction.recipient}</span>
                   </div>
                 )}
                 {selectedTransaction.description && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Description:</span>
-                    <span>{selectedTransaction.description}</span>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground text-xs sm:text-sm">Note:</span>
+                    <span className="text-xs sm:text-sm text-right break-words">{selectedTransaction.description}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Status:</span>
-                  <span className="capitalize">{selectedTransaction.status}</span>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground text-xs sm:text-sm">Status:</span>
+                  <span className="capitalize text-xs sm:text-sm">{selectedTransaction.status}</span>
                 </div>
               </div>
 
-              <div className="pt-4 border-t text-center text-sm text-muted-foreground">
-                Thank you for banking with Heritage Bank
+              <div className="pt-3 sm:pt-4 border-t text-center text-xs sm:text-sm text-muted-foreground">
+                Thank you for banking with us
               </div>
 
-              <Button onClick={downloadReceipt} className="w-full" variant="outline">
-                <Download className="w-4 h-4 mr-2" />
-                Download Receipt
+              <Button onClick={downloadReceipt} className="w-full text-sm" variant="outline" size="sm">
+                <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                Download
               </Button>
             </div>
           )}
