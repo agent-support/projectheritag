@@ -160,22 +160,25 @@ export type Database = {
       }
       crypto_transfer_fees: {
         Row: {
-          btc_fee: number
+          coin_symbol: string
           created_at: string
+          fee_amount: number
           id: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          btc_fee?: number
+          coin_symbol?: string
           created_at?: string
+          fee_amount?: number
           id?: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          btc_fee?: number
+          coin_symbol?: string
           created_at?: string
+          fee_amount?: number
           id?: string
           updated_at?: string
           user_id?: string
@@ -302,6 +305,8 @@ export type Database = {
         Row: {
           address: string | null
           age: number | null
+          bank_transfer_fee: number
+          business_account_required: boolean
           country: string | null
           created_at: string | null
           date_of_birth: string | null
@@ -320,6 +325,8 @@ export type Database = {
         Insert: {
           address?: string | null
           age?: number | null
+          bank_transfer_fee?: number
+          business_account_required?: boolean
           country?: string | null
           created_at?: string | null
           date_of_birth?: string | null
@@ -338,6 +345,8 @@ export type Database = {
         Update: {
           address?: string | null
           age?: number | null
+          bank_transfer_fee?: number
+          business_account_required?: boolean
           country?: string | null
           created_at?: string | null
           date_of_birth?: string | null

@@ -10,9 +10,11 @@ import { WalletAddressUpdate } from "@/components/admin/WalletAddressUpdate";
 import { PendingTransfers } from "@/components/admin/PendingTransfers";
 import { AdminSettings } from "@/components/admin/AdminSettings";
 import { CryptoTransferFees } from "@/components/admin/CryptoTransferFees";
+import { BankTransferFees } from "@/components/admin/BankTransferFees";
+import { BusinessAccountToggle } from "@/components/admin/BusinessAccountToggle";
 import { useToast } from "@/hooks/use-toast";
 
-type AdminSection = "dashboard" | "users" | "balances" | "crypto" | "wallets" | "transfers" | "settings" | "crypto-fees";
+type AdminSection = "dashboard" | "users" | "balances" | "crypto" | "wallets" | "transfers" | "settings" | "crypto-fees" | "bank-fees" | "business-upgrade";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -88,6 +90,8 @@ const Admin = () => {
           {currentSection === "wallets" && <WalletAddressUpdate />}
           {currentSection === "transfers" && <PendingTransfers />}
           {currentSection === "crypto-fees" && <CryptoTransferFees />}
+          {currentSection === "bank-fees" && <BankTransferFees />}
+          {currentSection === "business-upgrade" && <BusinessAccountToggle />}
           {currentSection === "settings" && <AdminSettings />}
         </div>
       </main>
