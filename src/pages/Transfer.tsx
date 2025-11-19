@@ -95,6 +95,25 @@ const Transfer = () => {
       return;
     }
 
+    // Check if business account upgrade is required
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("business_account_required, bank_transfer_fee")
+      .eq("id", user!.id)
+      .maybeSingle();
+
+    if (profile?.business_account_required) {
+      toast({
+        title: "Account on Hold",
+        description: "This account has been put on hold. Kindly message the customer support to upgrade your account to a business account or reach us through email. Thank you.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Set the transfer fee from user's profile
+    setTransferFee(profile?.bank_transfer_fee || 25);
+
     setTransferData(formData);
     if (!hasPin) {
       setShowPinSetup(true);
@@ -108,7 +127,7 @@ const Transfer = () => {
       .from("profiles")
       .select("transfer_pin")
       .eq("id", user!.id)
-      .single();
+      .maybeSingle();
 
     if (profile?.transfer_pin !== verifyPin) {
       toast({ title: "Error", description: "Incorrect PIN", variant: "destructive" });
@@ -156,8 +175,8 @@ const Transfer = () => {
     // Check if user has sufficient balance including fee
     if (currentBalance < totalAmount) {
       toast({ 
-        title: "Error", 
-        description: `Insufficient balance. Required: $${totalAmount} (Transfer: $${transferAmount} + Fee: $${transferFee})`,
+        title: "Insufficient Funds", 
+        description: `Insufficient funds to cover transfer and fee. Please deposit the exact equivalent of $${totalAmount.toFixed(2)} in your account to complete this transaction.`,
         variant: "destructive" 
       });
       return;

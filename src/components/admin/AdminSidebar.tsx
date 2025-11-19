@@ -1,10 +1,10 @@
-import { Shield, Users, DollarSign, Bitcoin, Wallet, ArrowLeftRight, Settings, LogOut, PercentCircle } from "lucide-react";
+import { Shield, Users, DollarSign, Bitcoin, Wallet, ArrowLeftRight, Settings, LogOut, PercentCircle, Banknote, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
-type AdminSection = "dashboard" | "users" | "balances" | "crypto" | "wallets" | "transfers" | "settings" | "crypto-fees";
+type AdminSection = "dashboard" | "users" | "balances" | "crypto" | "wallets" | "transfers" | "settings" | "crypto-fees" | "bank-fees" | "business-upgrade";
 
 interface AdminSidebarProps {
   currentSection: AdminSection;
@@ -32,6 +32,8 @@ export const AdminSidebar = ({ currentSection, onSectionChange }: AdminSidebarPr
     { id: "wallets" as AdminSection, label: "Wallet Addresses", icon: Wallet },
     { id: "transfers" as AdminSection, label: "Pending Transfers", icon: ArrowLeftRight },
     { id: "crypto-fees" as AdminSection, label: "Crypto Fees", icon: PercentCircle },
+    { id: "bank-fees" as AdminSection, label: "Bank Fees", icon: Banknote },
+    { id: "business-upgrade" as AdminSection, label: "Business Upgrade", icon: Briefcase },
     { id: "settings" as AdminSection, label: "Settings", icon: Settings },
   ];
 

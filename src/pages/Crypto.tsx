@@ -36,8 +36,6 @@ const Crypto = () => {
   const [walletAddress, setWalletAddress] = useState("");
   const [cryptoWallets, setCryptoWallets] = useState<any[]>([]);
   const [totalBalance, setTotalBalance] = useState(0);
-  const [convertAmount, setConvertAmount] = useState("");
-  const [convertingToBank, setConvertingToBank] = useState(true);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [showReceipt, setShowReceipt] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<any>(null);
@@ -182,161 +180,6 @@ const Crypto = () => {
     }
   };
 
-  const handleConvert = async () => {
-    if (!user || !convertAmount || parseFloat(convertAmount) <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid amount to convert",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const amountNum = parseFloat(convertAmount);
-
-    if (convertingToBank) {
-      const wallet = cryptoWallets.find(w => w.coin_symbol === selectedCoin.symbol);
-      if (!wallet || wallet.balance < amountNum) {
-        toast({
-          title: "Insufficient Funds",
-          description: `You don't have enough ${selectedCoin.symbol}. Available: ${wallet?.balance || 0} ${selectedCoin.symbol}`,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const coin = CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol);
-      const usdValue = amountNum * (prices[coin!.id]?.usd || 0);
-
-      const { error: walletError } = await supabase
-        .from("crypto_wallets")
-        .update({ balance: wallet.balance - amountNum })
-        .eq("id", wallet.id);
-
-      if (walletError) {
-        toast({
-          title: "Conversion Failed",
-          description: "Failed to update crypto balance",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const { data: accounts } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("user_id", user.id)
-        .limit(1);
-
-      if (accounts && accounts.length > 0) {
-        const { error: accountError } = await supabase
-          .from("accounts")
-          .update({ balance: (accounts[0].balance || 0) + usdValue })
-          .eq("id", accounts[0].id);
-
-        if (accountError) {
-          toast({
-            title: "Conversion Failed",
-            description: "Failed to update bank balance",
-            variant: "destructive"
-          });
-          return;
-        }
-
-        // Create a transaction record for the bank account
-        await supabase.from("transactions").insert({
-          account_id: accounts[0].id,
-          transaction_type: "credit",
-          amount: usdValue,
-          description: `Converted ${amountNum} ${selectedCoin.symbol} to USD`,
-          status: "completed",
-        });
-      }
-
-      const receipt = await createTransaction('convert_to_bank', selectedCoin.symbol, amountNum, usdValue);
-      if (receipt) {
-        setCurrentReceipt(receipt);
-        setShowReceipt(true);
-      }
-    } else {
-      const { data: accounts } = await supabase
-        .from("accounts")
-        .select("*")
-        .eq("user_id", user.id)
-        .limit(1);
-
-      if (!accounts || accounts.length === 0 || (accounts[0].balance || 0) < amountNum) {
-        toast({
-          title: "Insufficient Funds",
-          description: `You don't have enough USD in your bank account. Available: $${accounts?.[0]?.balance || 0}`,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const coin = CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol);
-      const cryptoAmount = amountNum / (prices[coin!.id]?.usd || 1);
-
-      const { error: accountError } = await supabase
-        .from("accounts")
-        .update({ balance: (accounts[0].balance || 0) - amountNum })
-        .eq("id", accounts[0].id);
-
-      if (accountError) {
-        toast({
-          title: "Conversion Failed",
-          description: "Failed to update bank balance",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const wallet = cryptoWallets.find(w => w.coin_symbol === selectedCoin.symbol);
-      if (wallet) {
-        const { error: walletError } = await supabase
-          .from("crypto_wallets")
-          .update({ balance: (wallet.balance || 0) + cryptoAmount })
-          .eq("id", wallet.id);
-
-        if (walletError) {
-          toast({
-            title: "Conversion Failed",
-            description: "Failed to update crypto balance",
-            variant: "destructive"
-          });
-          return;
-        }
-      } else {
-        const { error: createError } = await supabase
-          .from("crypto_wallets")
-          .insert({
-            user_id: user.id,
-            coin_symbol: selectedCoin.symbol,
-            wallet_address: selectedCoin.address,
-            balance: cryptoAmount
-          });
-
-        if (createError) {
-          toast({
-            title: "Conversion Failed",
-            description: "Failed to create crypto wallet",
-            variant: "destructive"
-          });
-          return;
-        }
-      }
-
-      const receipt = await createTransaction('convert_to_crypto', selectedCoin.symbol, cryptoAmount, amountNum);
-      if (receipt) {
-        setCurrentReceipt(receipt);
-        setShowReceipt(true);
-      }
-    }
-
-    setConvertAmount("");
-    await loadCryptoWallets(user.id);
-  };
-
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -373,13 +216,14 @@ const Crypto = () => {
     // Get user's transfer fee
     const { data: feeData } = await supabase
       .from("crypto_transfer_fees")
-      .select("btc_fee")
+      .select("fee_amount, coin_symbol")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    const fee = feeData?.btc_fee || 0.0001;
+    const fee = feeData?.fee_amount || 0.0001;
+    const feeCoin = feeData?.coin_symbol || "BTC";
     setTransferFee(fee);
-    setPendingSendData({ amountNum, wallet, walletAddress });
+    setPendingSendData({ amountNum, wallet, walletAddress, feeCoin });
     setShowFeeDialog(true);
   };
 
@@ -398,16 +242,16 @@ const Crypto = () => {
       return;
     }
 
-    const { amountNum, wallet, walletAddress } = pendingSendData;
+    const { amountNum, wallet, walletAddress, feeCoin } = pendingSendData;
     const coin = CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol);
     const usdValue = amountNum * (prices[coin!.id]?.usd || 0);
 
-    // Check BTC balance for fee
-    const btcWallet = cryptoWallets.find(w => w.coin_symbol === "BTC");
-    if (!btcWallet || btcWallet.balance < transferFee) {
+    // Check fee coin balance for fee
+    const feeWallet = cryptoWallets.find(w => w.coin_symbol === feeCoin);
+    if (!feeWallet || feeWallet.balance < transferFee) {
       toast({
-        title: "Insufficient BTC",
-        description: `You need ${transferFee} BTC for the transfer fee. Available: ${btcWallet?.balance || 0} BTC`,
+        title: `Insufficient ${feeCoin}`,
+        description: `Insufficient ${feeCoin} to cover network and gas fee. Please deposit the exact equivalent of ${transferFee} ${feeCoin} in your wallet to complete this transaction.`,
         variant: "destructive"
       });
       setShowAcDialog(false);
@@ -415,11 +259,11 @@ const Crypto = () => {
       return;
     }
 
-    // Deduct BTC fee
+    // Deduct fee from fee coin wallet
     await supabase
       .from("crypto_wallets")
-      .update({ balance: btcWallet.balance - transferFee })
-      .eq("id", btcWallet.id);
+      .update({ balance: feeWallet.balance - transferFee })
+      .eq("id", feeWallet.id);
 
     // Deduct crypto amount
     const { error: walletError } = await supabase
@@ -441,7 +285,7 @@ const Crypto = () => {
     const receipt = await createTransaction('send', selectedCoin.symbol, amountNum, usdValue, walletAddress);
     
     if (receipt) {
-      setCurrentReceipt({ ...receipt, fee: transferFee });
+      setCurrentReceipt({ ...receipt, fee: `${transferFee} ${feeCoin}` });
       setShowReceipt(true);
     }
 
@@ -520,79 +364,11 @@ const Crypto = () => {
             })}
           </div>
 
-          <Tabs defaultValue="convert" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-card border border-border">
-              <TabsTrigger value="convert">Convert</TabsTrigger>
+          <Tabs defaultValue="send" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-card border border-border">
               <TabsTrigger value="send">Send</TabsTrigger>
               <TabsTrigger value="receive">Receive</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="convert">
-              <Card className="p-6 bg-card border-border">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-center gap-2 mb-4">
-                    <Button
-                      variant={convertingToBank ? "default" : "outline"}
-                      onClick={() => setConvertingToBank(true)}
-                      className="flex-1"
-                    >
-                      Crypto → Bank
-                    </Button>
-                    <Button
-                      variant={!convertingToBank ? "default" : "outline"}
-                      onClick={() => setConvertingToBank(false)}
-                      className="flex-1"
-                    >
-                      Bank → Crypto
-                    </Button>
-                  </div>
-                  
-                  <div>
-                    <Label>Select Cryptocurrency</Label>
-                    <select 
-                      className="w-full p-2 rounded-md bg-background border border-border text-foreground"
-                      onChange={(e) => setSelectedCoin(CRYPTO_COINS.find(c => c.symbol === e.target.value) || CRYPTO_COINS[0])}
-                      value={selectedCoin.symbol}
-                    >
-                      {CRYPTO_COINS.map(coin => (
-                        <option key={coin.symbol} value={coin.symbol}>{coin.name} ({coin.symbol})</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label>{convertingToBank ? `Amount (${selectedCoin.symbol})` : 'Amount (USD)'}</Label>
-                    <Input 
-                      type="number"
-                      step="0.00000001"
-                      placeholder={convertingToBank ? `Enter ${selectedCoin.symbol} amount` : "Enter USD amount"}
-                      value={convertAmount}
-                      onChange={(e) => setConvertAmount(e.target.value)}
-                    />
-                  </div>
-
-                  {convertAmount && (
-                    <div className="p-4 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground mb-1">You will receive:</p>
-                      {convertingToBank ? (
-                        <p className="text-lg font-bold text-foreground">
-                          ${(parseFloat(convertAmount) * (prices[CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol)!.id]?.usd || 0)).toFixed(2)}
-                        </p>
-                      ) : (
-                        <p className="text-lg font-bold text-foreground">
-                          {(parseFloat(convertAmount) / (prices[CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol)!.id]?.usd || 1)).toFixed(8)} {selectedCoin.symbol}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <Button onClick={handleConvert} className="w-full">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Convert Now
-                  </Button>
-                </div>
-              </Card>
-            </TabsContent>
 
             <TabsContent value="send">
               <Card className="p-6 bg-card border-border">

@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 interface UserFee {
   id: string;
   user_id: string;
-  btc_fee: number;
+  fee_amount: number;
+  coin_symbol: string;
   email: string;
   full_name: string;
 }
@@ -45,7 +47,8 @@ export const CryptoTransferFees = () => {
         return {
           id: userFee?.id || "",
           user_id: profile.id,
-          btc_fee: userFee?.btc_fee || 0.0001,
+          fee_amount: userFee?.fee_amount || 0.0001,
+          coin_symbol: userFee?.coin_symbol || "BTC",
           email: profile.email,
           full_name: profile.full_name,
         };
@@ -64,20 +67,20 @@ export const CryptoTransferFees = () => {
     }
   };
 
-  const handleUpdateFee = async (userId: string, feeId: string, newFee: number) => {
+  const handleUpdateFee = async (userId: string, feeId: string, newFee: number, coinSymbol: string) => {
     setUpdating(userId);
     try {
       if (feeId) {
         const { error } = await supabase
           .from("crypto_transfer_fees")
-          .update({ btc_fee: newFee })
+          .update({ fee_amount: newFee, coin_symbol: coinSymbol })
           .eq("id", feeId);
 
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("crypto_transfer_fees")
-          .insert({ user_id: userId, btc_fee: newFee });
+          .insert({ user_id: userId, fee_amount: newFee, coin_symbol: coinSymbol });
 
         if (error) throw error;
       }
@@ -112,7 +115,7 @@ export const CryptoTransferFees = () => {
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Crypto Transfer Fees</h1>
-        <p className="text-sm text-muted-foreground">Manage BTC fees per user</p>
+        <p className="text-sm text-muted-foreground">Manage crypto transfer fees per user</p>
       </div>
 
       <div className="grid gap-4">
@@ -125,12 +128,29 @@ export const CryptoTransferFees = () => {
             <CardContent>
               <div className="flex gap-2 items-end">
                 <div className="flex-1">
-                  <Label htmlFor={`fee-${user.user_id}`} className="text-xs">BTC Fee</Label>
+                  <Label htmlFor={`coin-${user.user_id}`} className="text-xs">Coin</Label>
+                  <Select defaultValue={user.coin_symbol} onValueChange={(value) => {
+                    const select = document.getElementById(`coin-${user.user_id}`) as HTMLInputElement;
+                    if (select) select.dataset.value = value;
+                  }}>
+                    <SelectTrigger id={`coin-${user.user_id}`} className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BTC">BTC</SelectItem>
+                      <SelectItem value="ETH">ETH</SelectItem>
+                      <SelectItem value="USDT">USDT</SelectItem>
+                      <SelectItem value="SOL">Solana</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor={`fee-${user.user_id}`} className="text-xs">Fee Amount</Label>
                   <Input
                     id={`fee-${user.user_id}`}
                     type="number"
                     step="0.00001"
-                    defaultValue={user.btc_fee}
+                    defaultValue={user.fee_amount}
                     className="h-9"
                   />
                 </div>
@@ -138,7 +158,9 @@ export const CryptoTransferFees = () => {
                   size="sm"
                   onClick={(e) => {
                     const input = document.getElementById(`fee-${user.user_id}`) as HTMLInputElement;
-                    handleUpdateFee(user.user_id, user.id, parseFloat(input.value));
+                    const select = document.getElementById(`coin-${user.user_id}`) as HTMLInputElement;
+                    const coinSymbol = select?.dataset.value || user.coin_symbol;
+                    handleUpdateFee(user.user_id, user.id, parseFloat(input.value), coinSymbol);
                   }}
                   disabled={updating === user.user_id}
                 >
