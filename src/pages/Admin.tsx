@@ -9,9 +9,10 @@ import { CryptoFunding } from "@/components/admin/CryptoFunding";
 import { WalletAddressUpdate } from "@/components/admin/WalletAddressUpdate";
 import { PendingTransfers } from "@/components/admin/PendingTransfers";
 import { AdminSettings } from "@/components/admin/AdminSettings";
+import { CryptoTransferFees } from "@/components/admin/CryptoTransferFees";
 import { useToast } from "@/hooks/use-toast";
 
-type AdminSection = "dashboard" | "users" | "balances" | "crypto" | "wallets" | "transfers" | "settings";
+type AdminSection = "dashboard" | "users" | "balances" | "crypto" | "wallets" | "transfers" | "settings" | "crypto-fees";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -86,6 +87,7 @@ const Admin = () => {
           {currentSection === "crypto" && <CryptoFunding />}
           {currentSection === "wallets" && <WalletAddressUpdate />}
           {currentSection === "transfers" && <PendingTransfers />}
+          {currentSection === "crypto-fees" && <CryptoTransferFees />}
           {currentSection === "settings" && <AdminSettings />}
         </div>
       </main>

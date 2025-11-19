@@ -20,12 +20,16 @@ const Transfer = () => {
   const [hasPin, setHasPin] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [showPinVerify, setShowPinVerify] = useState(false);
+  const [showFeeDialog, setShowFeeDialog] = useState(false);
+  const [showAcDialog, setShowAcDialog] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [verifyPin, setVerifyPin] = useState("");
+  const [acCode, setAcCode] = useState("");
   const [transferData, setTransferData] = useState<any>(null);
   const [receiptData, setReceiptData] = useState<any>(null);
+  const [transferFee, setTransferFee] = useState(25);
 
   const [formData, setFormData] = useState({
     recipientName: "",
@@ -111,6 +115,25 @@ const Transfer = () => {
       return;
     }
 
+    setShowPinVerify(false);
+    setShowFeeDialog(true);
+  };
+
+  const handleConfirmFee = () => {
+    setShowFeeDialog(false);
+    setShowAcDialog(true);
+  };
+
+  const handleVerifyAcCode = async () => {
+    if (acCode !== "101010") {
+      toast({ 
+        title: "Invalid Code", 
+        description: "Invalid authorization code. Please reach out to customer support.",
+        variant: "destructive" 
+      });
+      return;
+    }
+
     // Get user's account
     const { data: accounts } = await supabase
       .from("accounts")
@@ -127,16 +150,21 @@ const Transfer = () => {
 
     const account = accounts[0];
     const transferAmount = parseFloat(transferData.amount);
+    const totalAmount = transferAmount + transferFee;
     const currentBalance = typeof account.balance === 'string' ? parseFloat(account.balance) : account.balance;
 
-    // Check if user has sufficient balance
-    if (currentBalance < transferAmount) {
-      toast({ title: "Error", description: "Insufficient balance", variant: "destructive" });
+    // Check if user has sufficient balance including fee
+    if (currentBalance < totalAmount) {
+      toast({ 
+        title: "Error", 
+        description: `Insufficient balance. Required: $${totalAmount} (Transfer: $${transferAmount} + Fee: $${transferFee})`,
+        variant: "destructive" 
+      });
       return;
     }
 
-    // Deduct from account balance
-    const newBalance = currentBalance - transferAmount;
+    // Deduct from account balance (amount + fee)
+    const newBalance = currentBalance - totalAmount;
     const { error: balanceError } = await supabase
       .from("accounts")
       .update({ balance: newBalance })
@@ -149,7 +177,7 @@ const Transfer = () => {
 
     const referenceNumber = `HER${Date.now()}${Math.floor(Math.random() * 1000)}`;
     
-    // Create transfer record
+    // Create transfer record with PENDING status
     const { error } = await supabase
       .from("transfers")
       .insert({
@@ -160,7 +188,8 @@ const Transfer = () => {
         recipient_country: transferData.recipientCountry,
         amount: transferAmount,
         transfer_type: transferData.transferType,
-        reference_number: referenceNumber
+        reference_number: referenceNumber,
+        status: "pending"
       });
 
     if (error) {
@@ -168,28 +197,34 @@ const Transfer = () => {
       return;
     }
 
-    // Create transaction record
+    // Create transaction record with PENDING status
     await supabase
       .from("transactions")
       .insert({
         account_id: account.id,
         amount: transferAmount,
         transaction_type: "transfer",
-        description: `Transfer to ${transferData.recipientName}`,
+        description: `Transfer to ${transferData.recipientName} (Fee: $${transferFee})`,
         recipient: transferData.recipientName,
-        status: "completed"
+        status: "pending"
       });
 
     setReceiptData({
       ...transferData,
       referenceNumber,
-      date: new Date().toLocaleString()
+      fee: transferFee,
+      date: new Date().toLocaleString(),
+      status: "pending"
     });
-    setShowPinVerify(false);
+    setShowAcDialog(false);
+    setAcCode("");
     setVerifyPin("");
     setShowReceipt(true);
     
-    toast({ title: "Success", description: "Transfer completed successfully" });
+    toast({ 
+      title: "Transfer Submitted", 
+      description: "Your transfer is pending admin approval" 
+    });
   };
 
   return (
@@ -347,7 +382,49 @@ const Transfer = () => {
                 onChange={(e) => setVerifyPin(e.target.value.replace(/\D/g, ''))}
               />
             </div>
-            <Button onClick={handleVerifyPin} className="w-full">Verify & Transfer</Button>
+            <Button onClick={handleVerifyPin} className="w-full">Continue</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showFeeDialog} onOpenChange={setShowFeeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transfer Fee</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-center p-6 bg-muted/20 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-2">Transaction Fee</p>
+              <p className="text-3xl font-bold text-foreground">${transferFee.toFixed(2)}</p>
+            </div>
+            <p className="text-sm text-muted-foreground text-center">
+              This fee will be added to your transfer amount
+            </p>
+            <Button onClick={handleConfirmFee} className="w-full">Continue</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAcDialog} onOpenChange={setShowAcDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Authorization Required</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Please input the AC authorization code. If you don't have one, reach out to customer support.
+            </p>
+            <div>
+              <Label>6-digit AC Code</Label>
+              <Input 
+                type="text" 
+                maxLength={6}
+                value={acCode}
+                onChange={(e) => setAcCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="Enter AC code"
+              />
+            </div>
+            <Button onClick={handleVerifyAcCode} className="w-full">Verify & Submit</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -367,7 +444,16 @@ const Transfer = () => {
                   <Check className="w-8 h-8 text-accent-foreground" />
                 </div>
               </div>
-              <h3 className="text-center text-xl font-semibold text-foreground mb-4">Transfer Successful</h3>
+              <h3 className="text-center text-xl font-semibold text-foreground mb-4">
+                {receiptData?.status === 'pending' ? 'Transfer Submitted' : 'Transfer Successful'}
+              </h3>
+              {receiptData?.status === 'pending' && (
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400 text-center">
+                    Your transfer is pending admin approval
+                  </p>
+                </div>
+              )}
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Reference:</span>
@@ -402,8 +488,20 @@ const Transfer = () => {
                   <span className="font-bold text-lg text-accent">${parseFloat(receiptData?.amount || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-muted-foreground">Fee:</span>
+                  <span className="font-semibold text-foreground">${receiptData?.fee?.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Type:</span>
                   <span className="font-semibold capitalize">{receiptData?.transferType}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className={`font-semibold capitalize ${
+                    receiptData?.status === 'pending' ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'
+                  }`}>
+                    {receiptData?.status}
+                  </span>
                 </div>
               </div>
             </div>

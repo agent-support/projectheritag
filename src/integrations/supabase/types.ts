@@ -158,6 +158,30 @@ export type Database = {
         }
         Relationships: []
       }
+      crypto_transfer_fees: {
+        Row: {
+          btc_fee: number
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          btc_fee?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          btc_fee?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       crypto_wallets: {
         Row: {
           balance: number | null
