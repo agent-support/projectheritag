@@ -14,17 +14,17 @@ const Contact = () => {
       <div className="pt-24">
         <section className="py-20">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-16">
-              <h1 className="text-5xl font-bold mb-6 text-foreground">Contact & Support</h1>
-              <p className="text-xl text-muted-foreground">
+            <div className="text-center mb-12 md:mb-16 px-4">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 text-foreground">Contact & Support</h1>
+              <p className="text-base md:text-lg lg:text-xl text-muted-foreground">
                 We're here to help you with all your banking needs
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
-              <Card className="p-8 bg-card border-border">
-                <h2 className="text-2xl font-bold mb-6 text-foreground">Send us a message</h2>
-                <form className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+              <Card className="p-6 md:p-8 bg-card border-border">
+                <h2 className="text-xl md:text-2xl font-bold mb-6 text-foreground">Send us a message</h2>
+                <form className="space-y-4 md:space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="contact-name">Name</Label>
                     <Input id="contact-name" type="text" placeholder="Your name" />
@@ -47,9 +47,9 @@ const Contact = () => {
                 </form>
               </Card>
 
-              <div className="space-y-8">
-                <Card className="p-8 bg-card border-border">
-                  <h2 className="text-2xl font-bold mb-6 text-foreground">Contact Information</h2>
+              <div className="space-y-6 md:space-y-8">
+                <Card className="p-6 md:p-8 bg-card border-border">
+                  <h2 className="text-xl md:text-2xl font-bold mb-6 text-foreground">Contact Information</h2>
                   <div className="space-y-6">
                     <ContactItem 
                       icon={<Phone className="w-6 h-6 text-accent" />}
@@ -60,7 +60,7 @@ const Contact = () => {
                     <ContactItem 
                       icon={<Mail className="w-6 h-6 text-accent" />}
                       title="Email"
-                      content="support@heritagebank.com"
+                      content="support@heritagehelpteam.online"
                       subtitle="We'll respond within 24 hours"
                     />
                     <ContactItem 
@@ -72,8 +72,8 @@ const Contact = () => {
                   </div>
                 </Card>
 
-                <Card className="p-8 bg-card border-border">
-                  <h3 className="text-xl font-bold mb-4 text-foreground">Business Hours</h3>
+                <Card className="p-6 md:p-8 bg-card border-border">
+                  <h3 className="text-lg md:text-xl font-bold mb-4 text-foreground">Business Hours</h3>
                   <div className="space-y-2 text-muted-foreground">
                     <p>Monday - Friday: 9:00 AM - 5:00 PM</p>
                     <p>Saturday: 9:00 AM - 1:00 PM</p>
