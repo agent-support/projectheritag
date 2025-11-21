@@ -27,7 +27,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          account_number: string
+          account_number?: string
           account_type: string
           balance?: number | null
           created_at?: string | null
@@ -484,6 +484,7 @@ export type Database = {
         Args: { _status: string; _user_id: string }
         Returns: undefined
       }
+      generate_account_number: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
