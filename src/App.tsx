@@ -44,7 +44,7 @@ const App = () => (
           <Route path="/crypto" element={<Crypto />} />
           <Route path="/atm-card" element={<ATMCard />} />
           <Route path="/mobile-deposit" element={<MobileDeposit />} />
-          <Route path="/secure-panel-hb2024" element={<Admin />} />
+          <Route path="/admin/auth" element={<Admin />} />
           <Route path="/transactions" element={<TransactionHistory />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
