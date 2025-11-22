@@ -6,8 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wallet, ArrowUpRight, ArrowDownRight, CreditCard, TrendingUp, FileText, Smartphone, Shield, Clock, DollarSign } from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownRight, CreditCard, TrendingUp, FileText, Smartphone, Shield, Clock, DollarSign, Send } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+import { QuickSendMoney } from "@/components/QuickSendMoney";
 interface Account {
   id: string;
   account_type: string;
@@ -163,10 +164,14 @@ const Dashboard = () => {
 
               {accounts.length === 0}
 
+              {/* Quick Send Money Widget */}
+              <QuickSendMoney />
+
               {/* Quick Actions */}
               <h2 className="text-2xl font-bold text-foreground mb-4">Quick Actions</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <QuickActionCard icon={<ArrowUpRight className="w-6 h-6" />} title="Transfer Money" description="Send money locally or internationally" onClick={() => navigate("/transfer")} />
+                <QuickActionCard icon={<Send className="w-6 h-6" />} title="Send Money" description="Transfer to Heritage Bank users" onClick={() => navigate("/send-money")} />
+                <QuickActionCard icon={<ArrowUpRight className="w-6 h-6" />} title="Bank Transfer" description="Send money to other banks" onClick={() => navigate("/transfer")} />
                 <QuickActionCard icon={<Smartphone className="w-6 h-6" />} title="Mobile Deposit" description="View deposit information" onClick={() => navigate("/mobile-deposit")} />
                 <QuickActionCard icon={<Wallet className="w-6 h-6" />} title="My Profile" description="Manage your personal information" onClick={() => navigate("/profile")} />
                 <QuickActionCard icon={<TrendingUp className="w-6 h-6" />} title="Crypto Service" description="Buy, sell, and trade crypto" onClick={() => navigate("/crypto")} />
@@ -202,14 +207,26 @@ const Dashboard = () => {
 
               {/* Quick Action Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="p-6 bg-card border-border hover:border-accent transition-all cursor-pointer" onClick={() => navigate("/send-money")}>
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-accent/10 rounded-lg">
+                      <Send className="w-6 h-6 text-accent" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-1">Send Money</h3>
+                      <p className="text-sm text-muted-foreground">Transfer to Heritage Bank users instantly</p>
+                    </div>
+                  </div>
+                </Card>
+
                 <Card className="p-6 bg-card border-border hover:border-accent transition-all cursor-pointer" onClick={() => navigate("/transfer")}>
                   <div className="flex items-start gap-4">
                     <div className="p-3 bg-accent/10 rounded-lg">
                       <ArrowUpRight className="w-6 h-6 text-accent" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-foreground mb-1">Withdraw Money</h3>
-                      <p className="text-sm text-muted-foreground">Transfer funds locally or internationally</p>
+                      <h3 className="font-semibold text-foreground mb-1">Bank Transfer</h3>
+                      <p className="text-sm text-muted-foreground">Send to other banks locally or internationally</p>
                     </div>
                   </div>
                 </Card>

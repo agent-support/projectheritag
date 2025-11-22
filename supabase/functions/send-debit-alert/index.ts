@@ -8,10 +8,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface CreditAlertRequest {
+interface DebitAlertRequest {
   email: string;
   name: string;
-  senderName: string;
+  recipientName: string;
   amount: number;
   currency: string;
   currentBalance: number;
@@ -37,13 +37,13 @@ const formatDateTime = (timestamp: string) => {
   });
 };
 
-const generateCreditAlertHTML = (data: CreditAlertRequest) => `
+const generateDebitAlertHTML = (data: DebitAlertRequest) => `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Credit Alert - Heritage Bank</title>
+  <title>Debit Alert - Heritage Bank</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 40px 20px;">
@@ -61,8 +61,8 @@ const generateCreditAlertHTML = (data: CreditAlertRequest) => `
           <!-- Alert Badge -->
           <tr>
             <td style="padding: 30px 30px 0 30px; text-align: center;">
-              <div style="display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 12px 30px; border-radius: 25px; font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">
-                Credit Alert
+              <div style="display: inline-block; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 12px 30px; border-radius: 25px; font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: 1px;">
+                Debit Alert
               </div>
             </td>
           </tr>
@@ -73,19 +73,19 @@ const generateCreditAlertHTML = (data: CreditAlertRequest) => `
               <h2 style="color: #1e293b; margin: 0 0 15px 0; font-size: 22px;">Hello ${data.name},</h2>
               
               <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
-                An incoming transaction was successfully added to your account. Here are the details:
+                A payment was successfully processed from your account. Here are the details:
               </p>
               
               <!-- Transaction Details Box -->
               <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border-radius: 8px; overflow: hidden; margin: 25px 0;">
                 <tr>
                   <td style="padding: 25px;">
-                    <!-- Amount Received -->
+                    <!-- Amount Debited -->
                     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
                       <tr>
-                        <td style="padding: 15px; background-color: #dcfce7; border-left: 4px solid #10b981; border-radius: 4px;">
-                          <p style="color: #064e3b; font-size: 14px; margin: 0 0 5px 0; font-weight: 600;">Amount Received</p>
-                          <p style="color: #065f46; font-size: 32px; margin: 0; font-weight: bold;">${formatCurrency(data.amount, data.currency)}</p>
+                        <td style="padding: 15px; background-color: #fee2e2; border-left: 4px solid #ef4444; border-radius: 4px;">
+                          <p style="color: #7f1d1d; font-size: 14px; margin: 0 0 5px 0; font-weight: 600;">Amount Debited</p>
+                          <p style="color: #991b1b; font-size: 32px; margin: 0; font-weight: bold;">${formatCurrency(data.amount, data.currency)}</p>
                         </td>
                       </tr>
                     </table>
@@ -94,8 +94,8 @@ const generateCreditAlertHTML = (data: CreditAlertRequest) => `
                     <table width="100%" cellpadding="0" cellspacing="0" style="border-top: 1px solid #e2e8f0; padding-top: 20px;">
                       <tr>
                         <td style="padding: 8px 0;">
-                          <p style="color: #64748b; font-size: 13px; margin: 0;">Sender Name</p>
-                          <p style="color: #1e293b; font-size: 15px; margin: 5px 0 0 0; font-weight: 600;">${data.senderName}</p>
+                          <p style="color: #64748b; font-size: 13px; margin: 0;">Recipient Name</p>
+                          <p style="color: #1e293b; font-size: 15px; margin: 5px 0 0 0; font-weight: 600;">${data.recipientName}</p>
                         </td>
                       </tr>
                       <tr>
@@ -163,18 +163,18 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const data: CreditAlertRequest = await req.json();
+    const data: DebitAlertRequest = await req.json();
     
-    console.log("Sending credit alert email to:", data.email);
+    console.log("Sending debit alert email to:", data.email);
 
     const emailResponse = await resend.emails.send({
       from: "Heritage Bank <onboarding@resend.dev>",
       to: [data.email],
-      subject: `Credit Alert: ${formatCurrency(data.amount, data.currency)} Received - Heritage Bank`,
-      html: generateCreditAlertHTML(data),
+      subject: `Debit Alert: ${formatCurrency(data.amount, data.currency)} Sent - Heritage Bank`,
+      html: generateDebitAlertHTML(data),
     });
 
-    console.log("Credit alert email sent successfully:", emailResponse);
+    console.log("Debit alert email sent successfully:", emailResponse);
 
     return new Response(JSON.stringify(emailResponse), {
       status: 200,
@@ -184,7 +184,7 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
   } catch (error: any) {
-    console.error("Error in send-credit-alert function:", error);
+    console.error("Error in send-debit-alert function:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

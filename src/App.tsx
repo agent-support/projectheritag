@@ -20,6 +20,7 @@ import ATMCard from "./pages/ATMCard";
 import MobileDeposit from "./pages/MobileDeposit";
 import Admin from "./pages/Admin";
 import TransactionHistory from "./pages/TransactionHistory";
+import InternalTransfer from "./pages/InternalTransfer";
 
 const queryClient = new QueryClient();
 
@@ -45,7 +46,8 @@ const App = () => (
           <Route path="/atm-card" element={<ATMCard />} />
           <Route path="/mobile-deposit" element={<MobileDeposit />} />
           <Route path="/admin/auth" element={<Admin />} />
-          <Route path="/transactions" element={<TransactionHistory />} />
+           <Route path="/transactions" element={<TransactionHistory />} />
+          <Route path="/send-money" element={<InternalTransfer />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
