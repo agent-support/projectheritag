@@ -51,6 +51,8 @@ export const EditBalances = () => {
     setAccounts(data || []);
   };
 
+  const [loading, setLoading] = useState(false);
+
   const updateBalance = async (operation: "add" | "subtract") => {
     if (!selectedUser || !amount) {
       toast({
@@ -61,43 +63,50 @@ export const EditBalances = () => {
       return;
     }
 
-    // If no account exists, create one
-    if (accounts.length === 0) {
-      const accountNumber = `ACC${Date.now()}`;
-      const { data: newAccount, error: createError } = await supabase
-        .from("accounts")
-        .insert({
-          user_id: selectedUser,
-          account_type: "checking",
-          account_number: accountNumber,
-          balance: operation === "add" ? Number(amount) : 0,
-          currency: "USD",
-          status: "active"
-        })
-        .select()
-        .single();
+    setLoading(true);
 
-      if (createError || !newAccount) {
-        toast({
-          title: "Error",
-          description: "Failed to create account",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Create transaction record
-      await supabase.from("transactions").insert({
-        account_id: newAccount.id,
-        transaction_type: "credit",
-        amount: Number(amount),
-        description: `Admin added initial funds`,
-        status: "completed",
-      });
-
-      // Log action
+    try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      if (!user) throw new Error("Not authenticated");
+
+      let accountId: string;
+      let currentBalance = 0;
+      let accountCurrency = "USD";
+      let transactionId: string | undefined;
+
+      // If no account exists, create one
+      if (accounts.length === 0) {
+        const { data: newAccount, error: createError } = await supabase
+          .from("accounts")
+          .insert({
+            user_id: selectedUser,
+            account_type: "checking",
+            balance: operation === "add" ? Number(amount) : 0,
+            currency: "USD",
+            status: "active"
+          })
+          .select()
+          .single();
+
+        if (createError || !newAccount) throw new Error("Failed to create account");
+
+        accountId = newAccount.id;
+        currentBalance = 0;
+        
+        const newBalance = Number(amount);
+
+        // Create transaction record
+        const { data: txn } = await supabase.from("transactions").insert({
+          account_id: newAccount.id,
+          transaction_type: "credit",
+          amount: Number(amount),
+          description: `Admin added initial funds`,
+          status: "completed",
+        }).select().single();
+
+        transactionId = txn?.id;
+
+        // Log action
         await supabase.from("admin_logs").insert({
           admin_id: user.id,
           action_type: `balance_add`,
@@ -106,69 +115,89 @@ export const EditBalances = () => {
             account_id: newAccount.id, 
             amount: Number(amount), 
             previous_balance: 0,
-            new_balance: Number(amount)
+            new_balance: newBalance
           },
         });
+
+        // Send credit alert email
+        try {
+          const { data: userProfile } = await supabase
+            .from("profiles")
+            .select("email, full_name")
+            .eq("id", selectedUser)
+            .single();
+
+          if (userProfile) {
+            await supabase.functions.invoke("send-credit-alert", {
+              body: {
+                email: userProfile.email,
+                name: userProfile.full_name,
+                senderName: "Heritage Bank Admin",
+                amount: Number(amount),
+                currency: accountCurrency,
+                currentBalance: newBalance,
+                transactionId: transactionId || "N/A",
+                timestamp: new Date().toISOString(),
+              },
+            });
+          }
+        } catch (emailError) {
+          console.error("Error sending credit alert:", emailError);
+        }
+
+        toast({
+          title: "Success",
+          description: "Account created and funded successfully",
+        });
+
+        setAmount("");
+        await loadUserAccounts(selectedUser);
+        return;
       }
 
-      toast({
-        title: "Success",
-        description: "Account created and funded successfully",
-      });
+      // Use existing account or selected account
+      const targetAccount = selectedAccount 
+        ? accounts.find((a) => a.id === selectedAccount)
+        : accounts[0];
+        
+      if (!targetAccount) throw new Error("No account found");
 
-      setAmount("");
-      loadUserAccounts(selectedUser);
-      return;
-    }
+      currentBalance = Number(targetAccount.balance);
+      accountCurrency = targetAccount.currency || "USD";
+      const changeAmount = Number(amount);
+      const newBalance = operation === "add" 
+        ? currentBalance + changeAmount 
+        : currentBalance - changeAmount;
 
-    // Use existing account or selected account
-    const targetAccount = selectedAccount 
-      ? accounts.find((a) => a.id === selectedAccount)
-      : accounts[0];
-      
-    if (!targetAccount) return;
+      if (newBalance < 0) {
+        toast({
+          title: "Error",
+          description: "Balance cannot be negative",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
 
-    const currentBalance = Number(targetAccount.balance);
-    const changeAmount = Number(amount);
-    const newBalance = operation === "add" 
-      ? currentBalance + changeAmount 
-      : currentBalance - changeAmount;
+      const { error } = await supabase
+        .from("accounts")
+        .update({ balance: newBalance })
+        .eq("id", targetAccount.id);
 
-    if (newBalance < 0) {
-      toast({
-        title: "Error",
-        description: "Balance cannot be negative",
-        variant: "destructive",
-      });
-      return;
-    }
+      if (error) throw error;
 
-    const { error } = await supabase
-      .from("accounts")
-      .update({ balance: newBalance })
-      .eq("id", targetAccount.id);
+      // Create transaction record
+      const { data: txn } = await supabase.from("transactions").insert({
+        account_id: targetAccount.id,
+        transaction_type: operation === "add" ? "credit" : "debit",
+        amount: changeAmount,
+        description: `Admin ${operation === "add" ? "added" : "deducted"} funds`,
+        status: "completed",
+      }).select().single();
 
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update balance",
-        variant: "destructive",
-      });
-      return;
-    }
+      transactionId = txn?.id;
 
-    // Create transaction record
-    await supabase.from("transactions").insert({
-      account_id: targetAccount.id,
-      transaction_type: operation === "add" ? "credit" : "debit",
-      amount: changeAmount,
-      description: `Admin ${operation === "add" ? "added" : "deducted"} funds`,
-      status: "completed",
-    });
-
-    // Log action
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+      // Log action
       await supabase.from("admin_logs").insert({
         admin_id: user.id,
         action_type: `balance_${operation}`,
@@ -180,15 +209,52 @@ export const EditBalances = () => {
           new_balance: newBalance 
         },
       });
+
+      // Send credit alert email if adding funds
+      if (operation === "add") {
+        try {
+          const { data: userProfile } = await supabase
+            .from("profiles")
+            .select("email, full_name")
+            .eq("id", selectedUser)
+            .single();
+
+          if (userProfile) {
+            await supabase.functions.invoke("send-credit-alert", {
+              body: {
+                email: userProfile.email,
+                name: userProfile.full_name,
+                senderName: "Heritage Bank Admin",
+                amount: changeAmount,
+                currency: accountCurrency,
+                currentBalance: newBalance,
+                transactionId: transactionId || "N/A",
+                timestamp: new Date().toISOString(),
+              },
+            });
+          }
+        } catch (emailError) {
+          console.error("Error sending credit alert:", emailError);
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: `Balance ${operation === "add" ? "added" : "subtracted"} successfully`,
+      });
+
+      setAmount("");
+      await loadUserAccounts(selectedUser);
+    } catch (error) {
+      console.error("Error updating balance:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update balance",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-
-    toast({
-      title: "Success",
-      description: `Balance ${operation === "add" ? "added" : "subtracted"} successfully`,
-    });
-
-    setAmount("");
-    loadUserAccounts(selectedUser);
   };
 
   const filteredUsers = users.filter((user) =>
@@ -260,9 +326,10 @@ export const EditBalances = () => {
                   <Button
                     className="w-full"
                     onClick={() => updateBalance("add")}
+                    disabled={loading}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Account & Add Funds
+                    {loading ? "Processing..." : "Create Account & Add Funds"}
                   </Button>
                 </div>
               ) : (
@@ -299,17 +366,19 @@ export const EditBalances = () => {
                     <Button
                       className="flex-1"
                       onClick={() => updateBalance("add")}
+                      disabled={loading}
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Funds
+                      {loading ? "Processing..." : "Add Funds"}
                     </Button>
                     <Button
                       variant="destructive"
                       className="flex-1"
                       onClick={() => updateBalance("subtract")}
+                      disabled={loading}
                     >
                       <Minus className="h-4 w-4 mr-2" />
-                      Subtract Funds
+                      {loading ? "Processing..." : "Subtract Funds"}
                     </Button>
                   </div>
                 </>

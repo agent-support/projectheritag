@@ -49,8 +49,10 @@ export const WalletAddressUpdate = () => {
     setWallets(data || []);
   };
 
+  const [updating, setUpdating] = useState(false);
+
   const updateWalletAddress = async () => {
-    if (!selectedWallet || !newAddress) {
+    if (!selectedWallet || !newAddress.trim()) {
       toast({
         title: "Error",
         description: "Please select a wallet and enter new address",
@@ -59,38 +61,48 @@ export const WalletAddressUpdate = () => {
       return;
     }
 
-    const { error } = await supabase
-      .from("crypto_wallets")
-      .update({ wallet_address: newAddress })
-      .eq("id", selectedWallet);
+    setUpdating(true);
 
-    if (error) {
+    try {
+      const { error } = await supabase
+        .from("crypto_wallets")
+        .update({ 
+          wallet_address: newAddress,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", selectedWallet);
+
+      if (error) throw error;
+
+      // Log action
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("admin_logs").insert({
+          admin_id: user.id,
+          action_type: "wallet_address_update",
+          target_user_id: selectedUser,
+          details: { wallet_id: selectedWallet, new_address: newAddress },
+        });
+      }
+
+      toast({
+        title: "Success",
+        description: "Wallet address updated successfully",
+      });
+
+      setNewAddress("");
+      setSelectedWallet("");
+      await loadUserWallets(selectedUser);
+    } catch (error) {
+      console.error("Error updating wallet:", error);
       toast({
         title: "Error",
         description: "Failed to update wallet address",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setUpdating(false);
     }
-
-    // Log action
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("admin_logs").insert({
-        admin_id: user.id,
-        action_type: "wallet_address_update",
-        target_user_id: selectedUser,
-        details: { wallet_id: selectedWallet, new_address: newAddress },
-      });
-    }
-
-    toast({
-      title: "Success",
-      description: "Wallet address updated successfully",
-    });
-
-    setNewAddress("");
-    loadUserWallets(selectedUser);
   };
 
   return (
@@ -148,8 +160,12 @@ export const WalletAddressUpdate = () => {
                 />
               </div>
 
-              <Button className="w-full" onClick={updateWalletAddress}>
-                Update Address
+              <Button 
+                className="w-full" 
+                onClick={updateWalletAddress}
+                disabled={updating}
+              >
+                {updating ? "Updating..." : "Update Address"}
               </Button>
             </>
           )}
