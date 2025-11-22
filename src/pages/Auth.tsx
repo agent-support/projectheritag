@@ -98,28 +98,8 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      let profilePictureUrl = "";
-
-      // Upload profile picture if provided
-      if (profilePicture) {
-        const fileExt = profilePicture.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const filePath = `${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('profile-pictures')
-          .upload(filePath, profilePicture);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('profile-pictures')
-          .getPublicUrl(filePath);
-
-        profilePictureUrl = publicUrl;
-      }
-
-      const { error } = await supabase.auth.signUp({
+      // First, create the user account
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -133,12 +113,41 @@ const Auth = () => {
             address,
             username,
             phone,
-            profile_picture_url: profilePictureUrl,
           },
         },
       });
 
-      if (error) throw error;
+      if (signUpError) throw signUpError;
+
+      // Now upload profile picture as authenticated user
+      if (profilePicture && authData.user) {
+        const fileExt = profilePicture.name.split('.').pop();
+        const fileName = `${authData.user.id}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('profile-pictures')
+          .upload(filePath, profilePicture);
+
+        if (uploadError) {
+          console.error("Profile picture upload failed:", uploadError);
+          // Don't throw - account creation succeeded
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('profile-pictures')
+            .getPublicUrl(filePath);
+
+          // Update profile with picture URL
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ profile_picture_url: publicUrl })
+            .eq('id', authData.user.id);
+
+          if (updateError) {
+            console.error("Profile picture URL update failed:", updateError);
+          }
+        }
+      }
 
       toast({
         title: "Success!",
