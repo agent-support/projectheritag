@@ -6,7 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Download, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Download, ArrowUpCircle, ArrowDownCircle, Filter } from "lucide-react";
 import { format } from "date-fns";
 import type { User } from "@supabase/supabase-js";
 
@@ -24,9 +25,12 @@ const TransactionHistory = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState<string>("all");
+  const [sortOrder, setSortOrder] = useState<string>("newest");
 
   useEffect(() => {
     const checkUser = async () => {
@@ -62,13 +66,34 @@ const TransactionHistory = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      
       setTransactions(data || []);
+      setFilteredTransactions(data || []);
+      setLoading(false);
     } catch (error) {
       console.error("Error loading transactions:", error);
-    } finally {
       setLoading(false);
     }
   };
+
+  // Filter and sort transactions
+  useEffect(() => {
+    let filtered = [...transactions];
+
+    // Apply type filter
+    if (filterType !== "all") {
+      filtered = filtered.filter(t => t.transaction_type === filterType);
+    }
+
+    // Apply sort
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
+    setFilteredTransactions(filtered);
+  }, [transactions, filterType, sortOrder]);
 
   const handleTransactionClick = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
@@ -115,19 +140,56 @@ Thank you for banking with us.
             <span className="sm:hidden">Back</span>
           </Button>
 
-          <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-4 sm:mb-8">Transactions</h1>
+          <div className="mb-8">
+            <h1 className="text-2xl sm:text-4xl font-bold text-foreground mb-4">Transactions</h1>
+            
+            {/* Filters */}
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-4 h-4" />
+                      <SelectValue placeholder="Filter by type" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Transactions</SelectItem>
+                    <SelectItem value="credit">Credits Only</SelectItem>
+                    <SelectItem value="debit">Debits Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex-1 min-w-[200px]">
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest First</SelectItem>
+                    <SelectItem value="oldest">Oldest First</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
 
           {loading ? (
             <Card className="p-4 sm:p-8 text-center">
               <p className="text-sm sm:text-base text-muted-foreground">Loading...</p>
             </Card>
-          ) : transactions.length === 0 ? (
+          ) : filteredTransactions.length === 0 ? (
             <Card className="p-4 sm:p-8 text-center">
-              <p className="text-sm sm:text-base text-muted-foreground">No transactions</p>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                {transactions.length === 0 
+                  ? "No transactions" 
+                  : "No transactions match your filters"}
+              </p>
             </Card>
           ) : (
             <div className="space-y-2 sm:space-y-3">
-              {transactions.map((transaction) => (
+              {filteredTransactions.map((transaction) => (
                 <Card
                   key={transaction.id}
                   className="p-3 sm:p-4 hover:bg-accent/50 cursor-pointer transition-colors"
