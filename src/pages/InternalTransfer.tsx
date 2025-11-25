@@ -23,6 +23,8 @@ const InternalTransfer = () => {
     recipientIdentifier: "", // username or account number
     amount: "",
   });
+  const [recipientName, setRecipientName] = useState<string>("");
+  const [lookupLoading, setLookupLoading] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -35,6 +37,64 @@ const InternalTransfer = () => {
     };
     checkUser();
   }, [navigate]);
+
+  // Lookup recipient when identifier changes
+  useEffect(() => {
+    const lookupRecipient = async () => {
+      if (!formData.recipientIdentifier || formData.recipientIdentifier.length < 3) {
+        setRecipientName("");
+        return;
+      }
+
+      setLookupLoading(true);
+      
+      try {
+        // First try to find by username
+        const { data: profileByUsername } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .eq("username", formData.recipientIdentifier)
+          .maybeSingle();
+
+        if (profileByUsername) {
+          setRecipientName(profileByUsername.full_name);
+          setLookupLoading(false);
+          return;
+        }
+
+        // Then try by account number
+        const { data: accountData } = await supabase
+          .from("accounts")
+          .select("user_id")
+          .eq("account_number", formData.recipientIdentifier)
+          .maybeSingle();
+
+        if (accountData?.user_id) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", accountData.user_id)
+            .single();
+
+          if (profile) {
+            setRecipientName(profile.full_name);
+          } else {
+            setRecipientName("");
+          }
+        } else {
+          setRecipientName("");
+        }
+      } catch (error) {
+        console.error("Recipient lookup error:", error);
+        setRecipientName("");
+      } finally {
+        setLookupLoading(false);
+      }
+    };
+
+    const timeoutId = setTimeout(lookupRecipient, 500);
+    return () => clearTimeout(timeoutId);
+  }, [formData.recipientIdentifier]);
 
   const handleTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -280,14 +340,25 @@ const InternalTransfer = () => {
               <div>
                 <Label>Recipient (Username or Account Number)</Label>
                 <Input 
-                  placeholder="Enter username or account number"
+                  placeholder="Enter username or 10-digit account number"
                   value={formData.recipientIdentifier}
                   onChange={(e) => setFormData({...formData, recipientIdentifier: e.target.value})}
                   required 
                 />
-                <p className="text-sm text-muted-foreground mt-1">
-                  You can send to any Heritage Bank user using their username or account number
-                </p>
+                {lookupLoading && (
+                  <p className="text-sm text-muted-foreground mt-2">Looking up recipient...</p>
+                )}
+                {!lookupLoading && recipientName && (
+                  <div className="mt-2 p-3 bg-accent/10 rounded-lg border border-accent/20">
+                    <p className="text-sm text-muted-foreground">Sending to:</p>
+                    <p className="text-base font-semibold text-foreground">{recipientName}</p>
+                  </div>
+                )}
+                {!lookupLoading && formData.recipientIdentifier && !recipientName && formData.recipientIdentifier.length >= 3 && (
+                  <p className="text-sm text-destructive mt-2">
+                    Recipient not found. Please check the username or account number.
+                  </p>
+                )}
               </div>
 
               <div>
