@@ -268,6 +268,36 @@ export type Database = {
           },
         ]
       }
+      otp_codes: {
+        Row: {
+          attempts: number | null
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          otp_code: string
+          verified: boolean | null
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          otp_code: string
+          verified?: boolean | null
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          otp_code?: string
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
       portfolios: {
         Row: {
           created_at: string | null
@@ -484,6 +514,7 @@ export type Database = {
         Args: { _status: string; _user_id: string }
         Returns: undefined
       }
+      cleanup_expired_otps: { Args: never; Returns: undefined }
       generate_account_number: { Args: never; Returns: string }
       has_role: {
         Args: {
