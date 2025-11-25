@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
@@ -136,13 +136,16 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("OTP stored successfully, sending email...");
 
     // Configure SMTP client
-    const client = new SmtpClient();
-    
-    await client.connectTLS({
-      hostname: "smtp.hostinger.com",
-      port: 465,
-      username: "support@heritagehelpteam.online",
-      password: Deno.env.get("SMTP_PASSWORD") || "",
+    const client = new SMTPClient({
+      connection: {
+        hostname: "smtp.hostinger.com",
+        port: 465,
+        tls: true,
+        auth: {
+          username: "support@heritagehelpteam.online",
+          password: Deno.env.get("SMTP_PASSWORD") || "",
+        },
+      },
     });
 
     // Send email
