@@ -136,34 +136,17 @@ const Auth = () => {
     setOtpLoading(true);
 
     try {
-      // Verify OTP from database - trim both values to ensure accurate comparison
-      const { data: otpData, error: otpError } = await supabase
-        .from('otp_codes')
-        .select('*')
-        .eq('email', email.trim().toLowerCase())
-        .eq('otp_code', otp.trim())
-        .single();
+      // Verify OTP using edge function (bypasses RLS)
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('verify-otp', {
+        body: {
+          email: email.trim().toLowerCase(),
+          otp: otp.trim(),
+        },
+      });
 
-      if (otpError || !otpData) {
-        throw new Error("Invalid verification code");
+      if (verifyError || !verifyData?.success) {
+        throw new Error(verifyData?.error || verifyError?.message || "Invalid verification code");
       }
-
-      // Check if OTP is expired
-      if (new Date(otpData.expires_at) < new Date()) {
-        throw new Error("Verification code has expired. Please request a new one.");
-      }
-
-      // Check if already verified
-      if (otpData.verified) {
-        throw new Error("This verification code has already been used.");
-      }
-
-      // Mark OTP as verified
-      await supabase
-        .from('otp_codes')
-        .update({ verified: true })
-        .eq('email', email)
-        .eq('otp_code', otp);
 
       // Now create the actual user account
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
