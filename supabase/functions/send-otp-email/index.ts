@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "https://esm.sh/resend@2.0.0";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +10,6 @@ const corsHeaders = {
 interface OTPEmailRequest {
   email: string;
   name: string;
-  otp: string;
 }
 
 const generateOTPEmailHTML = (name: string, otp: string) => `
@@ -41,7 +39,7 @@ const generateOTPEmailHTML = (name: string, otp: string) => `
               <h2 style="color: #1e293b; margin: 0 0 20px 0; font-size: 24px;">Hello ${name},</h2>
               
               <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
-                Thank you for registering with Heritage Bank. To complete your account setup and verify your identity, please use the following One-Time Password (OTP):
+                Thank you for registering with Heritage Bank. To complete your account setup and verify your identity, please use the following verification code:
               </p>
               
               <!-- OTP Box -->
@@ -55,7 +53,7 @@ const generateOTPEmailHTML = (name: string, otp: string) => `
               </table>
               
               <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 20px 0;">
-                This OTP is valid for 10 minutes and is required to authenticate your identity and ensure the security of your account.
+                This code is valid for 30 minutes and is required to authenticate your identity and ensure the security of your account.
               </p>
               
               <!-- Security Notice -->
@@ -63,7 +61,7 @@ const generateOTPEmailHTML = (name: string, otp: string) => `
                 <tr>
                   <td style="padding: 20px;">
                     <p style="color: #92400e; font-size: 14px; margin: 0; line-height: 1.5;">
-                      <strong>Important:</strong> Do not share this code with anyone. Heritage Bank will never ask you to provide this code over the phone or via email. Keep your account secure.
+                      <strong>Important:</strong> Do not share this code with anyone. Heritage Bank will never ask you to provide this code over the phone or via email.
                     </p>
                   </td>
                 </tr>
@@ -100,20 +98,67 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { name, email, otp }: OTPEmailRequest = await req.json();
+    const { name, email }: OTPEmailRequest = await req.json();
     
-    console.log("Sending OTP email to:", email);
+    console.log("Generating OTP for:", email);
 
-    const emailResponse = await resend.emails.send({
-      from: "Heritage Bank <onboarding@resend.dev>",
-      to: [email],
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store OTP in database with 30 minute expiry
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+
+    // Delete any existing OTPs for this email
+    await supabase
+      .from('otp_codes')
+      .delete()
+      .eq('email', email);
+
+    // Insert new OTP
+    const { error: otpError } = await supabase
+      .from('otp_codes')
+      .insert({
+        email,
+        otp_code: otp,
+        expires_at: expiresAt.toISOString(),
+      });
+
+    if (otpError) {
+      console.error("Error storing OTP:", otpError);
+      throw new Error("Failed to store OTP");
+    }
+
+    console.log("OTP stored successfully, sending email...");
+
+    // Configure SMTP client
+    const client = new SmtpClient();
+    
+    await client.connectTLS({
+      hostname: "smtp.hostinger.com",
+      port: 465,
+      username: "support@heritagehelpteam.online",
+      password: Deno.env.get("SMTP_PASSWORD") || "",
+    });
+
+    // Send email
+    await client.send({
+      from: "Heritage Bank <support@heritagehelpteam.online>",
+      to: email,
       subject: "Identity Verification - Heritage Bank",
+      content: "Your OTP code is: " + otp,
       html: generateOTPEmailHTML(name, otp),
     });
 
-    console.log("OTP email sent successfully:", emailResponse);
+    await client.close();
 
-    return new Response(JSON.stringify(emailResponse), {
+    console.log("OTP email sent successfully");
+
+    return new Response(JSON.stringify({ success: true, message: "OTP sent successfully" }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
