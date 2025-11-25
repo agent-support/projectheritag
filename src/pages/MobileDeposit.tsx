@@ -27,14 +27,31 @@ const MobileDeposit = () => {
         .from("profiles")
         .select("full_name")
         .eq("id", session.user.id)
-        .single();
+        .maybeSingle();
 
-      const { data: account } = await supabase
+      let { data: account } = await supabase
         .from("accounts")
         .select("account_number")
         .eq("user_id", session.user.id)
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      // If no account exists, create one
+      if (!account) {
+        const { data: newAccount } = await supabase
+          .from("accounts")
+          .insert({
+            user_id: session.user.id,
+            account_type: "savings",
+            balance: 0.00,
+            currency: "USD",
+            status: "active"
+          })
+          .select("account_number")
+          .single();
+        
+        account = newAccount;
+      }
 
       if (profile) setUserName(profile.full_name);
       if (account) setAccountNumber(account.account_number);
