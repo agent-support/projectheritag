@@ -1,7 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "https://esm.sh/resend@2.0.0";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -167,16 +165,30 @@ const handler = async (req: Request): Promise<Response> => {
     
     console.log("Sending credit alert email to:", data.email);
 
-    const emailResponse = await resend.emails.send({
-      from: "Heritage Bank <onboarding@resend.dev>",
-      to: [data.email],
+    // Configure SMTP client
+    const client = new SmtpClient();
+    
+    await client.connectTLS({
+      hostname: "smtp.hostinger.com",
+      port: 465,
+      username: "support@heritagehelpteam.online",
+      password: Deno.env.get("SMTP_PASSWORD") || "",
+    });
+
+    // Send email
+    await client.send({
+      from: "Heritage Bank <support@heritagehelpteam.online>",
+      to: data.email,
       subject: `Credit Alert: ${formatCurrency(data.amount, data.currency)} Received - Heritage Bank`,
+      content: `You received ${formatCurrency(data.amount, data.currency)} from ${data.senderName}`,
       html: generateCreditAlertHTML(data),
     });
 
-    console.log("Credit alert email sent successfully:", emailResponse);
+    await client.close();
 
-    return new Response(JSON.stringify(emailResponse), {
+    console.log("Credit alert email sent successfully");
+
+    return new Response(JSON.stringify({ success: true, message: "Credit alert sent" }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",

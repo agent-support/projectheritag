@@ -24,6 +24,10 @@ const Auth = () => {
   const [phone, setPhone] = useState("");
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showOtpVerification, setShowOtpVerification] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -98,7 +102,70 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      // First, create the user account
+      // Send OTP email first
+      const { error: otpError } = await supabase.functions.invoke('send-otp-email', {
+        body: {
+          email,
+          name: `${firstName} ${lastName}`,
+        },
+      });
+
+      if (otpError) throw otpError;
+
+      // Store user data temporarily for after OTP verification
+      setPendingUserId(email);
+      setShowOtpVerification(true);
+
+      toast({
+        title: "Verification Code Sent!",
+        description: "Please check your email for the 6-digit verification code.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send verification code",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOtpLoading(true);
+
+    try {
+      // Verify OTP from database
+      const { data: otpData, error: otpError } = await supabase
+        .from('otp_codes')
+        .select('*')
+        .eq('email', email)
+        .eq('otp_code', otp)
+        .single();
+
+      if (otpError || !otpData) {
+        throw new Error("Invalid verification code");
+      }
+
+      // Check if OTP is expired
+      if (new Date(otpData.expires_at) < new Date()) {
+        throw new Error("Verification code has expired. Please request a new one.");
+      }
+
+      // Check if already verified
+      if (otpData.verified) {
+        throw new Error("This verification code has already been used.");
+      }
+
+      // Mark OTP as verified
+      await supabase
+        .from('otp_codes')
+        .update({ verified: true })
+        .eq('email', email)
+        .eq('otp_code', otp);
+
+      // Now create the actual user account
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -119,7 +186,7 @@ const Auth = () => {
 
       if (signUpError) throw signUpError;
 
-      // Now upload profile picture as authenticated user
+      // Upload profile picture if provided
       if (profilePicture && authData.user) {
         const fileExt = profilePicture.name.split('.').pop();
         const fileName = `${authData.user.id}.${fileExt}`;
@@ -129,23 +196,15 @@ const Auth = () => {
           .from('profile-pictures')
           .upload(filePath, profilePicture);
 
-        if (uploadError) {
-          console.error("Profile picture upload failed:", uploadError);
-          // Don't throw - account creation succeeded
-        } else {
+        if (!uploadError) {
           const { data: { publicUrl } } = supabase.storage
             .from('profile-pictures')
             .getPublicUrl(filePath);
 
-          // Update profile with picture URL
-          const { error: updateError } = await supabase
+          await supabase
             .from('profiles')
             .update({ profile_picture_url: publicUrl })
             .eq('id', authData.user.id);
-
-          if (updateError) {
-            console.error("Profile picture URL update failed:", updateError);
-          }
         }
       }
 
@@ -153,14 +212,46 @@ const Auth = () => {
         title: "Success!",
         description: "Account created successfully. You can now sign in.",
       });
+
+      // Reset form and hide OTP verification
+      setShowOtpVerification(false);
+      setOtp("");
+      setPendingUserId(null);
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to sign up",
+        description: error.message || "Failed to verify code",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtpLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-otp-email', {
+        body: {
+          email,
+          name: `${firstName} ${lastName}`,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Code Resent!",
+        description: "A new verification code has been sent to your email.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resend code",
+        variant: "destructive",
+      });
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -209,7 +300,8 @@ const Auth = () => {
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={handleSignUp} className="space-y-4">
+                {!showOtpVerification ? (
+                  <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-2 text-foreground">First Name</label>
@@ -322,10 +414,68 @@ const Auth = () => {
                       required
                     />
                   </div>
-                  <Button className="w-full" size="lg" disabled={loading}>
-                    {loading ? "Creating account..." : "Sign Up"}
-                  </Button>
-                </form>
+                    <Button className="w-full" size="lg" disabled={loading}>
+                      {loading ? "Sending verification code..." : "Continue"}
+                    </Button>
+                  </form>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="text-center">
+                      <h3 className="text-xl font-semibold mb-2 text-foreground">Verify Your Email</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        We've sent a 6-digit verification code to <span className="font-semibold">{email}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        The code will expire in 30 minutes
+                      </p>
+                    </div>
+                    
+                    <form onSubmit={handleVerifyOtp} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2 text-foreground">Verification Code</label>
+                        <Input 
+                          type="text" 
+                          placeholder="Enter 6-digit code" 
+                          className="bg-background text-center text-2xl tracking-widest"
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          maxLength={6}
+                          required
+                        />
+                      </div>
+                      
+                      <Button className="w-full" size="lg" disabled={otpLoading || otp.length !== 6}>
+                        {otpLoading ? "Verifying..." : "Verify & Create Account"}
+                      </Button>
+                      
+                      <div className="text-center">
+                        <Button
+                          type="button"
+                          variant="link"
+                          onClick={handleResendOtp}
+                          disabled={otpLoading}
+                          className="text-sm"
+                        >
+                          Didn't receive the code? Resend
+                        </Button>
+                      </div>
+                      
+                      <div className="text-center">
+                        <Button
+                          type="button"
+                          variant="link"
+                          onClick={() => {
+                            setShowOtpVerification(false);
+                            setOtp("");
+                          }}
+                          className="text-sm text-muted-foreground"
+                        >
+                          Back to signup form
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </Card>
