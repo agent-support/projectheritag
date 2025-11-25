@@ -1,1 +1,13 @@
 project_id = "ishuzqocdtvqhjjkyyjl"
+
+[functions.send-otp-email]
+verify_jwt = false
+
+[functions.send-credit-alert]
+verify_jwt = false
+
+[functions.send-debit-alert]
+verify_jwt = false
+
+[functions.verify-otp]
+verify_jwt = false
