@@ -136,12 +136,12 @@ const Auth = () => {
     setOtpLoading(true);
 
     try {
-      // Verify OTP from database
+      // Verify OTP from database - trim both values to ensure accurate comparison
       const { data: otpData, error: otpError } = await supabase
         .from('otp_codes')
         .select('*')
-        .eq('email', email)
-        .eq('otp_code', otp)
+        .eq('email', email.trim().toLowerCase())
+        .eq('otp_code', otp.trim())
         .single();
 
       if (otpError || !otpData) {
