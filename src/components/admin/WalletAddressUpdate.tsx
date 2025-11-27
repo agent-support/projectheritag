@@ -64,30 +64,30 @@ export const WalletAddressUpdate = () => {
     setUpdating(true);
 
     try {
-      const { error } = await supabase
-        .from("crypto_wallets")
-        .update({ 
-          wallet_address: newAddress,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", selectedWallet);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Not authenticated");
+      }
+
+      // Call edge function with service_role to ensure update works
+      const { data, error } = await supabase.functions.invoke('update-wallet-address', {
+        body: {
+          walletId: selectedWallet,
+          newAddress: newAddress.trim(),
+          adminId: user.id,
+          targetUserId: selectedUser
+        }
+      });
 
       if (error) throw error;
 
-      // Log action
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from("admin_logs").insert({
-          admin_id: user.id,
-          action_type: "wallet_address_update",
-          target_user_id: selectedUser,
-          details: { wallet_id: selectedWallet, new_address: newAddress },
-        });
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       toast({
         title: "Success",
-        description: "Wallet address updated successfully",
+        description: "Wallet address updated successfully and reflected in user account",
       });
 
       setNewAddress("");
@@ -97,7 +97,7 @@ export const WalletAddressUpdate = () => {
       console.error("Error updating wallet:", error);
       toast({
         title: "Error",
-        description: "Failed to update wallet address",
+        description: error instanceof Error ? error.message : "Failed to update wallet address",
         variant: "destructive",
       });
     } finally {
